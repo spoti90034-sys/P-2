@@ -4100,11 +4100,20 @@ function bindAccordionItemListeners(day) {
           confirmAddExercise(day, tier);
         }
       });
+
+      input.addEventListener('blur', () => {
+        setTimeout(() => {
+          const suggestionsDiv = document.getElementById(`${tier}-suggestions-${day}`);
+          if (suggestionsDiv) suggestionsDiv.style.display = 'none';
+        }, 200);
+      });
     }
 
     if (setsInput) {
       setsInput.addEventListener('focus', (e) => {
         activeFocusedInput = e.target;
+        const suggestionsDiv = document.getElementById(`${tier}-suggestions-${day}`);
+        if (suggestionsDiv) suggestionsDiv.style.display = 'none';
       });
       setsInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
@@ -4117,6 +4126,8 @@ function bindAccordionItemListeners(day) {
     if (repsInput) {
       repsInput.addEventListener('focus', (e) => {
         activeFocusedInput = e.target;
+        const suggestionsDiv = document.getElementById(`${tier}-suggestions-${day}`);
+        if (suggestionsDiv) suggestionsDiv.style.display = 'none';
       });
       repsInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
