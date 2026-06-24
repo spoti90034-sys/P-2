@@ -1,0 +1,17 @@
+{
+  "name": "vintage-iron-club",
+  "version": "1.0.0",
+  "description": "High-Standard Vintage Dark Fitness App",
+  "main": "index.html",
+  "scripts": {
+    "start": "serve -l 3000",
+    "dev": "serve -l 3000",
+    "setup-db": "node setup_db.js"
+  },
+  "dependencies": {
+    "serve": "^14.2.1",
+    "pg": "^8.11.3"
+  },
+  "author": "Antigravity Gym Dev",
+  "license": "ISC"
+}

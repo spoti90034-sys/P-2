@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IRON CLUB - High-Performance Modern Fit-Tech App</title>
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+  <!-- App Main Wrapper -->
+  <div id="app">
+
+    <!-- Welcome Trainer Container -->
+    <div id="welcome-trainer-container" class="welcome-trainer-container" style="display: none;">
+      <div class="trainer-box">
+        <div id="zzz-particles" class="zzz-particles"></div>
+        <div id="trainer-sprite" class="trainer-sprite sleeping">
+          <!-- Sleeping Trainer SVG -->
+          <svg id="sleeping-trainer-svg" class="trainer-svg" viewBox="0 0 160 120">
+            <!-- Bed frame -->
+            <rect x="20" y="70" width="120" height="40" fill="#141a30" rx="6" stroke="rgba(0, 242, 254, 0.25)" stroke-width="1.5" />
+            <rect x="25" y="58" width="110" height="15" fill="#20294a" rx="4" />
+            <!-- Pillow -->
+            <rect x="95" y="60" width="30" height="15" fill="#e0e6f5" rx="3" />
+            <!-- Blanket -->
+            <rect x="25" y="70" width="75" height="40" fill="var(--color-violet)" rx="6" />
+            <!-- Sleeping face -->
+            <rect x="100" y="68" width="14" height="10" fill="#a0afb7" rx="2" />
+            <circle cx="107" cy="58" r="13" fill="#a0afb7" />
+            <!-- Sleeping eyes -->
+            <path d="M100 58 Q103 61 105 58" stroke="#121212" stroke-width="1.5" fill="none" stroke-linecap="round" />
+            <path d="M109 58 Q112 61 114 58" stroke="#121212" stroke-width="1.5" fill="none" stroke-linecap="round" />
+            <!-- Mouth closed -->
+            <line x1="104" y1="65" x2="110" y2="65" stroke="#121212" stroke-width="1.5" stroke-linecap="round" />
+            <!-- Headband -->
+            <rect x="96" y="47" width="22" height="6" fill="#121212" rx="1" />
+            <rect x="104" y="47" width="6" height="6" fill="var(--color-cyan)" />
+          </svg>
+          <!-- Awake Flexing Trainer SVG -->
+          <svg id="awake-trainer-svg" class="trainer-svg" viewBox="0 0 160 160" style="display: none;">
+            <!-- Glowing energy ring -->
+            <circle cx="80" cy="80" r="50" fill="none" stroke="rgba(0, 242, 254, 0.3)" stroke-width="2" stroke-dasharray="6,4" class="aura-spin" />
+            <!-- Flexed Torso -->
+            <path d="M60 100 Q80 85 100 100 L95 150 L65 150 Z" fill="#a0afb7" />
+            <!-- Left flexed arm -->
+            <path d="M60 115 Q30 95 40 80 Q55 70 62 95" stroke="#a0afb7" stroke-width="12" stroke-linecap="round" fill="none" />
+            <!-- Right flexed arm -->
+            <path d="M100 115 Q130 95 120 80 Q105 70 98 95" stroke="#a0afb7" stroke-width="12" stroke-linecap="round" fill="none" />
+            <circle cx="48" cy="80" r="8" fill="#a0afb7" />
+            <circle cx="112" cy="80" r="8" fill="#a0afb7" />
+            <!-- Head & Face -->
+            <rect x="73" y="80" width="14" height="15" fill="#a0afb7" />
+            <circle cx="80" cy="65" r="16" fill="#a0afb7" />
+            <!-- Glowing blue cyan eyes -->
+            <ellipse cx="74" cy="63" rx="2" ry="1.5" fill="var(--color-cyan)" class="eye-glow" />
+            <ellipse cx="86" cy="63" rx="2" ry="1.5" fill="var(--color-cyan)" class="eye-glow" />
+            <path d="M70 58 L77 61" stroke="#121212" stroke-width="2" stroke-linecap="round" />
+            <path d="M90 58 L83 61" stroke="#121212" stroke-width="2" stroke-linecap="round" />
+            <!-- Flexing smile -->
+            <path d="M75 73 Q80 78 85 73" stroke="#121212" stroke-width="2.5" fill="none" stroke-linecap="round" />
+            <!-- Headband -->
+            <rect x="66" y="52" width="28" height="7" fill="#121212" rx="1.5" />
+            <rect x="77" y="52" width="6" height="7" fill="var(--color-cyan)" />
+          </svg>
+        </div>
+        <div id="trainer-tooltip" class="trainer-tooltip">Tap on your trainer to wake up</div>
+      </div>
+    </div>
+
+    <!-- 1. VINTAGE HEADER / NAVIGATION -->
+    <header class="vintage-header">
+      <div class="logo-container entrance-animate">
+        <div class="logo-icon">I</div>
+        <div class="logo-text">
+          <span class="logo-title laser-text">Iron Club</span>
+          <span class="logo-subtitle laser-text">Est. 2026</span>
+        </div>
+      </div>
+      
+      <!-- Nav Links (Visible when logged in / bypassed) -->
+      <nav class="nav-links entrance-animate" id="main-nav" style="display: none;">
+        <div class="nav-item active laser-text" data-section="fitness-guide">Guide</div>
+        <div class="nav-item laser-text" data-section="workout-splits">Splits</div>
+        <div class="nav-item laser-text" data-section="cardio-module">Cardio</div>
+        <div class="nav-item laser-text" data-section="analytics-ledger">Analytics</div>
+        <div class="nav-item laser-text" data-section="intake-calculators">Intake</div>
+      </nav>
+
+      <!-- User Authentication Status / Sign Out -->
+      <div class="user-status entrance-animate" id="user-status-area" style="display: none;">
+        <span id="user-display-email" style="font-size: 0.8rem; color: var(--color-brass); font-weight: 600;">Guest</span>
+        <button class="btn-signout" id="btn-signout">Sign Out</button>
+      </div>
+    </header>
+
+    <!-- Main Viewport containing sections -->
+    <main class="main-viewport">
+
+      <!-- ==========================================================================
+           2. AUTHENTICATION SECTION (LOGIN / SIGN UP)
+           ========================================================================== -->
+      <section id="auth-section" class="app-section active">
+        <div class="auth-wrapper">
+          <div class="card-tactile auth-card">
+            <div class="auth-tabs">
+              <button class="auth-tab-btn active" id="tab-login">Login</button>
+              <button class="auth-tab-btn" id="tab-signup">Sign Up</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="form-login" class="auth-form active" onsubmit="return false;">
+              <div class="form-group">
+                <label for="login-email">Gym Member Email</label>
+                <input type="email" id="login-email" class="input-vintage" placeholder="member@ironclub.com" required>
+              </div>
+              <div class="form-group">
+                <label for="login-password">Access Code (Password)</label>
+                <div class="password-input-wrapper">
+                  <input type="password" id="login-password" class="input-vintage" placeholder="••••••••" required>
+                  <button type="button" class="password-toggle" data-target="login-password" aria-label="Toggle Password Visibility">
+                    <!-- Eye Icon SVG -->
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  </button>
+                </div>
+              </div>
+              <button type="submit" class="btn-vintage btn-vintage-primary" style="margin-top: 1rem;">Enter Iron Club</button>
+            </form>
+
+            <!-- Sign Up Form -->
+            <form id="form-signup" class="auth-form" onsubmit="return false;">
+              <div class="form-group">
+                <label for="signup-name">Full Name</label>
+                <input type="text" id="signup-name" class="input-vintage" placeholder="Arthur Pendelton" required>
+              </div>
+              <div class="form-group">
+                <label for="signup-email">Email Address</label>
+                <input type="email" id="signup-email" class="input-vintage" placeholder="member@ironclub.com" required>
+              </div>
+              <div class="form-group">
+                <label for="signup-password">Choose Access Code</label>
+                <div class="password-input-wrapper">
+                  <input type="password" id="signup-password" class="input-vintage" placeholder="••••••••" required>
+                  <button type="button" class="password-toggle" data-target="signup-password" aria-label="Toggle Password Visibility">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  </button>
+                </div>
+              </div>
+              <button type="submit" class="btn-vintage btn-vintage-primary" style="margin-top: 1rem;">Register Credentials</button>
+            </form>
+
+            <!-- Authentication Bypass -->
+            <div class="auth-bypass">
+              <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.8rem;">Ready to inspect our vintage systems immediately?</p>
+              <button class="btn-vintage" id="btn-guest-login" style="width: 100%;">Enter as Guest</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================================
+           3. SECTION 1: INTERACTIVE FITNESS GUIDE (MUSCLES & EXERCISES)
+           ========================================================================== -->
+      <section id="fitness-guide" class="app-section">
+        <h2 class="laser-text entrance-animate">Interactive Fitness Guide</h2>
+        <p class="entrance-animate" style="color: var(--text-secondary); margin-bottom: 2rem; max-width: 700px;">
+          Select a muscle group below to open the technical exercise breakdown. Examine details, target headings, and standardized loading protocols.
+        </p>
+
+        <!-- Main Muscle Group Cards -->
+        <div class="muscle-guide-grid" id="muscle-guide-grid">
+          <!-- Muscle Cards will be populated dynamically by JavaScript -->
+        </div>
+
+        <!-- Muscle Detail / Nested Sub-section Drilldown -->
+        <div class="drilldown-view" id="muscle-drilldown">
+          <div class="back-btn-container">
+            <button class="back-btn" id="btn-drilldown-back">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+              Return to Muscle Groups
+            </button>
+          </div>
+
+          <div class="drilldown-header">
+            <h2 id="drilldown-muscle-title" style="margin-bottom: 0; border: none; padding-bottom: 0;">BICEPS</h2>
+            <span class="muscle-card-count" id="drilldown-exercise-count">24 Exercises Loaded</span>
+          </div>
+
+          <!-- Nested specialized sub-sections container -->
+          <div class="subsections-container" id="subsections-container">
+            <!-- Populated dynamically by JavaScript -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================================
+           4. SECTION 2: WORKOUT SPLITS INTERFACE
+           ========================================================================== -->
+      <section id="workout-splits" class="app-section">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; width: 100%;">
+          <div>
+            <h2 class="laser-text entrance-animate" style="margin-bottom: 0.4rem;">Workout Splits & Schedules</h2>
+            <p class="entrance-animate" style="color: var(--text-secondary); max-width: 700px; margin-bottom: 0;">
+              Review the daily target templates. Click muscle blocks to expand set distributions or check Rest days for restorative guidelines.
+            </p>
+          </div>
+          <button class="btn-vintage btn-custom-split-trigger entrance-animate" id="btn-add-custom-split-trigger" style="background: linear-gradient(135deg, var(--color-violet) 0%, #5d00cc 100%); border-color: rgba(127, 0, 255, 0.4); box-shadow: var(--shadow-violet-glow); padding: 0.8rem 1.5rem; border-radius: 8px; font-weight: 700; color: #fff; cursor: pointer; transition: all var(--transition-fast);">+ Custom Split</button>
+        </div>
+
+        <div class="split-cards-container" id="splits-container">
+          <!-- Splits loaded dynamically by JavaScript -->
+        </div>
+
+        <!-- Rest Day 3D pop up Modal -->
+        <div class="rest-modal-overlay" id="rest-modal">
+          <div class="rest-modal-card">
+            <div class="rest-modal-title">REST</div>
+            <div class="rest-modal-subtitle">System Recovery in Progress</div>
+            <p style="font-size: 0.9rem; color: #fff; margin-bottom: 1rem;">
+              Muscles are built during recovery, not just lifting. Prioritize deep sleep, cellular hydration, and gentle mobility.
+            </p>
+            <div class="rest-modal-quote">
+              "No pump today. Feed the muscles, rest the spine, and clear the mind."
+            </div>
+            <button class="btn-vintage btn-vintage-primary" id="btn-close-rest-modal" style="width: 100%;">Acknowledge & Recovery</button>
+          </div>
+        </div>
+
+        <!-- Add Custom Split Modal -->
+        <div class="rest-modal-overlay" id="custom-split-modal" style="display: none; align-items: center; justify-content: center; z-index: 1100;">
+          <div class="rest-modal-card" style="max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; text-align: left; padding: 2rem; border-color: rgba(127, 0, 255, 0.3); box-shadow: 0 0 30px rgba(127, 0, 255, 0.2); position: relative;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px dashed rgba(255, 255, 255, 0.1); padding-bottom: 0.8rem;">
+              <div class="rest-modal-title" style="font-size: 1.5rem; text-shadow: 0 0 10px rgba(127,0,255,0.5); letter-spacing: 0.05em; color: var(--color-cyan); margin: 0;">CUSTOM SPLIT</div>
+              <button class="btn-vintage" id="btn-close-custom-split-modal" style="padding: 0.4rem 0.8rem; border-radius: 4px; border-color: rgba(255, 51, 102, 0.3); color: var(--color-crimson); font-weight: 700;">✖ CLOSE</button>
+            </div>
+            
+            <!-- Toast Notification Container inside Modal -->
+            <div class="custom-split-toast" id="custom-split-toast">
+               <span>✓</span> <span id="custom-split-toast-msg">Exercise Added Successfully</span>
+            </div>
+
+            <form id="form-custom-split" onsubmit="return false;" style="display: flex; flex-direction: column; gap: 1.2rem;">
+              <div class="form-group">
+                <label for="custom-split-name" style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700;">Program Name</label>
+                <input type="text" id="custom-split-name" class="input-vintage" placeholder="e.g. MY HYBRID POWER BUILD" required style="width: 100%;">
+              </div>
+              <div class="form-group">
+                <label for="custom-split-subtitle" style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700;">Subtitle / Description</label>
+                <input type="text" id="custom-split-subtitle" class="input-vintage" placeholder="e.g. Focus on chest & lat hypertrophy with power days" required style="width: 100%;">
+              </div>
+              
+              <!-- Duration of split selector -->
+              <div class="form-group">
+                <label style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; margin-bottom: 0.2rem;">Duration of split</label>
+                <div class="duration-wheel" id="custom-split-duration-wheel">
+                  <div class="duration-wheel-item" data-value="1">1</div>
+                  <div class="duration-wheel-item" data-value="2">2</div>
+                  <div class="duration-wheel-item" data-value="3">3</div>
+                  <div class="duration-wheel-item" data-value="4">4</div>
+                  <div class="duration-wheel-item" data-value="5">5</div>
+                  <div class="duration-wheel-item" data-value="6">6</div>
+                  <div class="duration-wheel-item active" data-value="7">7</div>
+                </div>
+              </div>
+
+              <!-- Collapsible Accordion Panels for Days -->
+              <div style="border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 1rem;">
+                <label style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700;">Configure Routines</label>
+                <div class="day-accordion-wrapper" id="custom-split-accordion-container">
+                  <!-- Generated dynamically in JS to keep HTML footprint clean -->
+                </div>
+              </div>
+
+              <!-- Save Button -->
+              <div style="display: flex; gap: 0.8rem; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 1rem;">
+                <button type="button" class="btn-vintage btn-vintage-primary" id="btn-save-custom-split" style="flex: 1; padding: 0.8rem; background: linear-gradient(135deg, var(--color-violet) 0%, #5d00cc 100%); border-color: rgba(127, 0, 255, 0.5); box-shadow: var(--shadow-violet-glow); font-weight: 700; border-radius: 6px; cursor: pointer; color: #fff;">SAVE CUSTOM SPLIT</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================================
+           5. SECTION 3: CARDIO MODULE, VERIFICATION ENGINE & GAMIFICATION
+           ========================================================================== */ -->
+      <section id="cardio-module" class="app-section">
+        <h2 class="laser-text entrance-animate">Cardio Dashboard & Verification</h2>
+        
+        <div class="cardio-grid">
+          
+          <!-- Left Cardio Module: Timers & Controls -->
+          <div class="cardio-section-left">
+            <div class="card-tactile cardio-controls-box entrance-animate">
+              <h3>Active Session Timer</h3>
+              <p style="font-size: 0.8rem; color: var(--text-secondary);">
+                Select your machine configuration, lock in target minutes, and initiate the session.
+              </p>
+
+              <!-- Profile Selector -->
+              <div class="cardio-selectors">
+                <button class="cardio-select-btn active" data-profile="Treadmill">Treadmill</button>
+                <button class="cardio-select-btn" data-profile="Bicycle">Bicycle</button>
+                <button class="cardio-select-btn" data-profile="Ropes">Battle Ropes</button>
+                <button class="cardio-select-btn" data-profile="Staircase">Stairs</button>
+              </div>
+
+              <!-- 3D Neumorphic Timer UI -->
+              <div class="timer-container">
+                <div class="timer-face" id="timer-display">00:00</div>
+                <div class="timer-target" id="timer-target-display">Target: 25:00</div>
+                <div class="timer-profile-name" id="timer-profile-label">Treadmill</div>
+              </div>
+
+              <!-- Timer Controls -->
+              <div class="timer-actions">
+                <button class="btn-vintage btn-timer-start" id="btn-timer-start">Start Clock</button>
+                <button class="btn-vintage btn-timer-pause" id="btn-timer-pause" style="display:none;">Pause</button>
+                <button class="btn-vintage btn-timer-reset" id="btn-timer-reset">Reset</button>
+                <button class="btn-vintage" id="btn-timer-fastforward" style="border-color: rgba(0, 242, 254, 0.2); color: var(--color-cyan);">Fast Forward (Test)</button>
+              </div>
+
+              <!-- Set Custom Goal -->
+              <div style="display:flex; align-items:center; gap: 0.8rem; margin-top: 1rem; border-top: 1px dashed rgba(197,168,128,0.15); padding-top: 1rem;">
+                <label for="cardio-target-input" style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">Adjust Target Target (Min):</label>
+                <input type="number" id="cardio-target-input" class="input-vintage" style="width: 80px; text-align: center; padding: 0.4rem;" min="1" max="120" value="25">
+              </div>
+            </div>
+
+            <!-- Automated Fraud Verification Engine -->
+            <div class="card-tactile fraud-verification-box entrance-animate" style="position: relative;">
+              
+              <!-- 25KG weight plate rotator loading overlay -->
+              <div class="loader-overlay" id="ocr-loader">
+                <div class="loader-container">
+                  <div class="plate-loader">
+                    <div class="plate-loader-inner">
+                      <div class="plate-center-ring"></div>
+                      <div class="plate-center-hole"></div>
+                      <span class="plate-text-top">IRON CLUB</span>
+                      <span class="plate-val-left">25</span>
+                      <span class="plate-val-right">KG</span>
+                      <span class="plate-text-bottom">ANTIGRAVITY</span>
+                    </div>
+                  </div>
+                  <div class="loader-label">Scanning Console Data...</div>
+                </div>
+              </div>
+
+              <h3>Console OCR Fraud Prevention</h3>
+              <p style="font-size: 0.8rem; color: var(--text-secondary);">
+                To avoid manual cheating, upload a photo of your cardio machine's final display. The automated OCR verification engine will parse the minutes completed to reward points safely.
+              </p>
+
+              <!-- Drag & Drop Zone -->
+              <div class="ocr-upload-zone" id="ocr-drop-zone">
+                <input type="file" id="ocr-file-input" accept="image/*">
+                <!-- Camera Icon SVG -->
+                <svg viewBox="0 0 24 24" class="ocr-upload-icon"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                <div class="ocr-upload-text">Upload Console Photograph</div>
+                <div class="ocr-upload-subtext">Drag & drop files or click to browse</div>
+              </div>
+
+              <!-- Simulating Helper: Test with Preset console readouts -->
+              <div style="display: flex; gap: 0.5rem; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+                <span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Simulate Upload:</span>
+                <div style="display:flex; gap:0.4rem;">
+                  <button class="btn-vintage" style="padding: 0.25rem 0.5rem; font-size: 0.65rem;" onclick="simulateOCR(15)">15 Min</button>
+                  <button class="btn-vintage" style="padding: 0.25rem 0.5rem; font-size: 0.65rem;" onclick="simulateOCR(25)">25 Min</button>
+                  <button class="btn-vintage" style="padding: 0.25rem 0.5rem; font-size: 0.65rem;" onclick="simulateOCR(36)">36 Min</button>
+                </div>
+              </div>
+
+              <!-- OCR Logs/Results -->
+              <div class="ocr-status-log" id="ocr-status-log"></div>
+            </div>
+          </div>
+
+          <!-- Right Cardio Module: Gamification & Levels -->
+          <div class="cardio-gamification-box">
+            <div class="card-tactile entrance-animate">
+              <h3>Athletic Milestones</h3>
+              <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+                Accumulate cardio hours to scale points. Upgrade your vintage ranking tier.
+              </p>
+
+              <!-- Level Indicators -->
+              <div class="level-badge-container">
+                <div class="level-orb">
+                  <span class="level-orb-num" id="level-display-num">1</span>
+                  <span class="level-orb-label">Rank</span>
+                </div>
+                <div class="level-info-right">
+                  <div class="level-title-str" id="level-display-title">Starter Spark</div>
+                  <div class="level-progress-bar-bg">
+                    <div class="level-progress-bar-fill" id="level-progress-fill"></div>
+                  </div>
+                  <div class="level-points-tracker">
+                    <span>Points: <span class="points-val" id="points-current-lbl">0</span></span>
+                    <span id="points-next-lbl">Next Rank: 100</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Points Guide references -->
+            <div class="card-tactile points-scaling-reference entrance-animate">
+              <div class="points-scaling-title">OCR Points Scaling Rules</div>
+              <ul class="points-scaling-list">
+                <li class="points-scaling-item"><span>&ge; 15 mins</span> <span>20 Points</span></li>
+                <li class="points-scaling-item"><span>&ge; 20 mins</span> <span>40 Points</span></li>
+                <li class="points-scaling-item"><span>&ge; 25 mins</span> <span>60 Points</span></li>
+                <li class="points-scaling-item"><span>&ge; 30 mins</span> <span>80 Points</span></li>
+                <li class="points-scaling-item"><span>&gt; 35 mins</span> <span>100 Points</span></li>
+              </ul>
+              
+              <div class="points-scaling-title" style="margin-top: 1rem;">Milestone Rank Thresholds</div>
+              <ul class="points-scaling-list">
+                <li class="points-scaling-item"><span>Rank 1 (Starter Spark)</span> <span>0 - 100 pts</span></li>
+                <li class="points-scaling-item"><span>Rank 2 (Momentum Maker)</span> <span>100 pts</span></li>
+                <li class="points-scaling-item"><span>Rank 3 (Endurance Rising)</span> <span>200 pts</span></li>
+                <li class="points-scaling-item"><span>Rank 4 (Cardio Crusher)</span> <span>400 pts</span></li>
+                <li class="points-scaling-item"><span>Rank 5 (Beast Mode Activated)</span> <span>1500 pts</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Level Up Pop-up toast message -->
+        <div class="level-up-toast" id="level-up-toast">
+          <div class="level-up-icon">★</div>
+          <div class="level-up-details">
+            <h4>RANK UPGRADED!</h4>
+            <p id="level-up-toast-message">You reached Level 2: Momentum Maker</p>
+          </div>
+        </div>
+
+        <!-- Level 5 Victory Overlay -->
+        <div class="victory-overlay" id="victory-overlay">
+          <div class="victory-content">
+            <div class="victory-badge">
+              <!-- Trophy Icon SVG -->
+              <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 1 10 10c0 1.2-.2 2.3-.6 3.4l-1.3-.4A8.5 8.5 0 0 0 20.5 12a8.5 8.5 0 1 0-17 0c0 1.1.2 2.2.6 3.2l-1.3.4C2.3 14.3 2 13.2 2 12A10 10 0 0 1 12 2zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm-3 7h6v2H9v-2zm1-5h4v2h-4V8z"></path><path d="M8 22h8v-2H8v2z"></path><path d="M12 18v2h-2a2 2 0 0 1-2-2h4z"></path></svg>
+            </div>
+            <div class="victory-title">VICTORY</div>
+            <div class="victory-subtitle">Beast Mode Activated</div>
+            <p class="victory-desc">
+              Unbelievable consistency. You have aggregated 1,500 milestone points, cementing your place among the absolute legends of the Iron Club.
+            </p>
+            <button class="btn-vintage btn-vintage-primary" id="btn-close-victory" style="padding: 1rem 2.5rem;">Return to Dashboard</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================================
+           6. SECTION 4: ANALYTICS, CONSISTENCY METRICS, & HISTORY LEDGER
+           ========================================================================== -->
+      <section id="analytics-ledger" class="app-section">
+        <h2 class="laser-text entrance-animate">Analytics & Activity Ledger</h2>
+
+        <div class="analytics-grid">
+          
+          <div class="analytics-card-half">
+            <!-- Real-Time Metric Counters -->
+            <div class="counter-box">
+              <div class="metric-counter entrance-animate">
+                <div class="metric-val" id="analytics-cardio-minutes">0</div>
+                <div class="metric-lbl">Cardio Minutes</div>
+              </div>
+              <div class="metric-counter entrance-animate">
+                <div class="metric-val" id="analytics-attendance-count">0/7</div>
+                <div class="metric-lbl">Weekly Attendance</div>
+              </div>
+            </div>
+
+            <!-- Attendance Grid Tracker -->
+            <div class="card-tactile entrance-animate">
+              <h3>Attendance Grid Tracker</h3>
+              <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                Toggle daily checkboxes corresponding to your completed routines for the active calendar week.
+              </p>
+              <div class="attendance-grid" id="attendance-grid-container">
+                <!-- Daily Grid cells generated by JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- History Ledger Separation -->
+          <div class="card-tactile entrance-animate">
+            <h3>Cardio Activity History</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+              Filter verified workout and cardio sessions by active timeline buckets.
+            </p>
+
+            <!-- Ledger Tabs -->
+            <div class="ledger-tabs">
+              <button class="ledger-tab-btn active" data-pane="ledger-weekly">Weekly Data</button>
+              <button class="ledger-tab-btn" data-pane="ledger-monthly">Monthly Graph</button>
+              <button class="ledger-tab-btn" data-pane="ledger-alltime">All-Time Archival</button>
+            </div>
+
+            <!-- Weekly Data Pane -->
+            <div class="ledger-pane active" id="ledger-weekly">
+              <ul class="ledger-list" id="weekly-logs-list">
+                <!-- JS Populated -->
+                <li style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 2rem 0;">No active logs recorded this week.</li>
+              </ul>
+            </div>
+
+            <!-- Monthly Graph Pane -->
+            <div class="ledger-pane" id="ledger-monthly">
+              <!-- Mapped bar representations -->
+              <div style="display:flex; flex-direction:column; gap:0.8rem; padding: 1rem 0;">
+                <div style="font-size: 0.8rem; font-weight:700; color: var(--color-brass);">Monthly Progress Indicators (Simulated)</div>
+                <div style="display:flex; align-items:flex-end; justify-content:space-between; height: 120px; border-bottom: 1px solid rgba(197,168,128,0.3); padding-bottom: 5px;" id="monthly-graph-bars">
+                  <!-- Generated by JS -->
+                </div>
+              </div>
+            </div>
+
+            <!-- All-Time Archival Pane -->
+            <div class="ledger-pane" id="ledger-alltime">
+              <ul class="ledger-list" id="alltime-logs-list">
+                <!-- JS Populated -->
+                <li style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 2rem 0;">Archival registry empty.</li>
+              </ul>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ==========================================================================
+           7. SECTION 5: SMART INTAKE CALCULATORS (PROTEIN & WATER TRACKER)
+           ========================================================================== -->
+      <section id="intake-calculators" class="app-section">
+        <h2 class="laser-text entrance-animate">Smart Intake Trackers</h2>
+        <p class="entrance-animate" style="color: var(--text-secondary); margin-bottom: 2rem; max-width: 700px;">
+          Configure daily macronutrient and cellular hydration targets. Add entry components to update fuel alerts and monitor your avatar's performance mood.
+        </p>
+
+        <div class="intake-container">
+          
+          <!-- A. Protein Intake Engine -->
+          <div class="intake-box entrance-animate">
+            <h3>Protein Intake Calculator</h3>
+            <div class="intake-card-split" id="protein-panel">
+              
+              <!-- Left side controllers -->
+              <div class="intake-controls">
+                
+                <!-- Target Goal -->
+                <div class="intake-goal-wrapper">
+                  <label for="protein-target">Daily Goal:</label>
+                  <input type="number" id="protein-target" class="intake-goal-input" value="150" min="50" max="400">
+                  <span class="intake-goal-unit">g</span>
+                </div>
+
+                <!-- State Alert Banner -->
+                <div class="intake-banner banner-empty" id="protein-banner">
+                  The Fuel Tank is Empty
+                </div>
+
+                <!-- Add meal entry Form -->
+                <div class="intake-form-row">
+                  <input type="text" id="protein-meal-name" class="input-vintage" style="flex:1.5;" placeholder="Meal Name (e.g. Steak)">
+                  <input type="number" id="protein-meal-val" class="input-vintage" style="flex:1;" placeholder="Grams" min="1">
+                  <button class="btn-vintage btn-vintage-primary btn-intake-add" id="btn-protein-add">Add</button>
+                </div>
+
+                <!-- Entry Logs List -->
+                <ul class="intake-log-list" id="protein-log-list">
+                  <!-- Populated by JS -->
+                </ul>
+
+                <!-- Total Tracker -->
+                <div style="display:flex; justify-content:space-between; font-size: 0.85rem; font-weight:700; border-top:1px dashed rgba(197,168,128,0.2); padding-top:0.8rem;">
+                  <span>Aggregated Sum:</span>
+                  <span style="color: var(--color-gold);"><span id="protein-sum-lbl">0</span>g / <span id="protein-goal-lbl">150</span>g</span>
+                </div>
+              </div>
+
+              <!-- Right side Responsive Avatar -->
+              <div class="avatar-container avatar-sad" id="protein-avatar-wrapper">
+                <!-- SVG Vector Avatar -->
+                <svg viewBox="0 0 100 150" class="avatar-svg avatar-glow">
+                  <rect x="35" y="110" width="30" height="40" fill="#333" rx="5" /> <!-- Neck -->
+                  <circle cx="50" cy="65" r="35" class="avatar-skin" fill="#c62828" /> <!-- Head -->
+                  <circle cx="40" cy="55" r="4" class="avatar-eyes" fill="#fff" /> <!-- Eye L -->
+                  <circle cx="60" cy="55" r="4" class="avatar-eyes" fill="#fff" /> <!-- Eye R -->
+                  <!-- Eyebrows -->
+                  <path d="M33 45 L45 48" stroke="#121212" stroke-width="3" stroke-linecap="round" class="avatar-eyebrows" id="p-brow-l" />
+                  <path d="M67 45 L55 48" stroke="#121212" stroke-width="3" stroke-linecap="round" class="avatar-eyebrows" id="p-brow-r" />
+                  <!-- Mouth (Path modified reactively by JS) -->
+                  <path d="M42 85 Q50 78 58 85" stroke="#121212" stroke-width="3" fill="none" stroke-linecap="round" class="avatar-mouth" id="p-mouth" />
+                  <!-- Gym Headband -->
+                  <rect x="14" y="32" width="72" height="10" fill="#121212" rx="2" />
+                  <rect x="42" y="32" width="16" height="10" fill="var(--color-gold)" />
+                </svg>
+                <div class="avatar-caption" id="protein-avatar-caption">Empty Tank</div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- B. Water Hydration Engine -->
+          <div class="intake-box entrance-animate">
+            <h3>Water Hydration Calculator</h3>
+            <div class="intake-card-split" id="water-panel">
+              
+              <!-- Left side controllers -->
+              <div class="intake-controls">
+                
+                <!-- Target Goal -->
+                <div class="intake-goal-wrapper">
+                  <label for="water-target">Daily Goal:</label>
+                  <input type="number" id="water-target" class="intake-goal-input" value="3.0" step="0.1" min="1" max="10">
+                  <span class="intake-goal-unit">L</span>
+                </div>
+
+                <!-- State Alert Banner -->
+                <div class="intake-banner banner-empty" id="water-banner">
+                  The Fuel Tank is Empty
+                </div>
+
+                <!-- Add meal entry Form -->
+                <div class="intake-form-row">
+                  <input type="text" id="water-entry-name" class="input-vintage" style="flex:1.5;" placeholder="Cup type (e.g. Mug)">
+                  <input type="number" id="water-entry-val" class="input-vintage" style="flex:1;" placeholder="Liters" step="0.05" min="0.05">
+                  <button class="btn-vintage btn-vintage-primary btn-intake-add" id="btn-water-add">Add</button>
+                </div>
+
+                <!-- Entry Logs List -->
+                <ul class="intake-log-list" id="water-log-list">
+                  <!-- Populated by JS -->
+                </ul>
+
+                <!-- Total Tracker -->
+                <div style="display:flex; justify-content:space-between; font-size: 0.85rem; font-weight:700; border-top:1px dashed rgba(197,168,128,0.2); padding-top:0.8rem;">
+                  <span>Aggregated Sum:</span>
+                  <span style="color: var(--color-gold);"><span id="water-sum-lbl">0.00</span>L / <span id="water-goal-lbl">3.00</span>L</span>
+                </div>
+              </div>
+
+              <!-- Right side Responsive Avatar -->
+              <div class="avatar-container avatar-sad" id="water-avatar-wrapper">
+                <!-- SVG Vector Avatar -->
+                <svg viewBox="0 0 100 150" class="avatar-svg avatar-glow">
+                  <rect x="35" y="110" width="30" height="40" fill="#333" rx="5" /> <!-- Neck -->
+                  <circle cx="50" cy="65" r="35" class="avatar-skin" fill="#c62828" /> <!-- Head -->
+                  <circle cx="40" cy="55" r="4" class="avatar-eyes" fill="#fff" /> <!-- Eye L -->
+                  <circle cx="60" cy="55" r="4" class="avatar-eyes" fill="#fff" /> <!-- Eye R -->
+                  <!-- Eyebrows -->
+                  <path d="M33 45 L45 48" stroke="#121212" stroke-width="3" stroke-linecap="round" class="avatar-eyebrows" id="w-brow-l" />
+                  <path d="M67 45 L55 48" stroke="#121212" stroke-width="3" stroke-linecap="round" class="avatar-eyebrows" id="w-brow-r" />
+                  <!-- Mouth (Path modified reactively by JS) -->
+                  <path d="M42 85 Q50 78 58 85" stroke="#121212" stroke-width="3" fill="none" stroke-linecap="round" class="avatar-mouth" id="w-mouth" />
+                  <!-- Gym Headband -->
+                  <rect x="14" y="32" width="72" height="10" fill="#121212" rx="2" />
+                  <rect x="42" y="32" width="16" height="10" fill="var(--color-gold)" />
+                </svg>
+                <div class="avatar-caption" id="water-avatar-caption">Dehydrated</div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Vintage Footer decorative border -->
+    <footer class="vintage-footer">
+      <div class="footer-decor">❖ ❖ ❖</div>
+      <p style="margin-bottom: 0.5rem; letter-spacing: 0.1em; text-transform: uppercase;">Iron Club High-Performance Fit-Tech Portal</p>
+      <p style="font-size:0.65rem; color: var(--text-muted);">© 2026 Iron Club. Designed with premium tactical engineering.</p>
+    </footer>
+
+  </div>
+
+  <!-- Floating Complete Box Target for Drag and Drop -->
+  <div class="complete-box" id="complete-box">
+    <div class="complete-box-border">
+      <svg viewBox="0 0 24 24" class="complete-box-icon"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+      <div class="complete-box-text">COMPLETE BOX</div>
+      <div class="complete-box-subtext">Drag items here</div>
+    </div>
+  </div>
+
+  <!-- Dark Room Dimming Mask -->
+  <div class="dark-room-overlay" id="dark-room-overlay"></div>
+
+  <!-- Room Light Strobe Flash -->
+  <div class="light-flash-overlay" id="light-flash-overlay"></div>
+
+  <!-- Supabase Client SDK CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Core Javascript Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
