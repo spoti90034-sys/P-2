@@ -269,10 +269,8 @@
               <button class="btn-vintage" id="btn-close-custom-split-modal" style="padding: 0.4rem 0.8rem; border-radius: 4px; border-color: rgba(255, 51, 102, 0.3); color: var(--color-crimson); font-weight: 700;">✖ CLOSE</button>
             </div>
             
-            <!-- Toast Notification Container inside Modal -->
-            <div class="custom-split-toast" id="custom-split-toast">
-               <span>✓</span> <span id="custom-split-toast-msg">Exercise Added Successfully</span>
-            </div>
+            
+
 
             <form id="form-custom-split" onsubmit="return false;" style="display: flex; flex-direction: column; gap: 1.2rem;">
               <div class="form-group">
@@ -728,6 +726,11 @@
 
   <!-- Room Light Strobe Flash -->
   <div class="light-flash-overlay" id="light-flash-overlay"></div>
+
+  <!-- Global Toast Notification Container -->
+  <div class="custom-split-toast" id="custom-split-toast">
+     <span>✓</span> <span id="custom-split-toast-msg">Notification Message</span>
+  </div>
 
   <!-- Supabase Client SDK CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
