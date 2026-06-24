@@ -60,16 +60,27 @@ let supabaseClient = null;
 
 async function initSupabase() {
   try {
-    const res = await fetch('config.json');
+    // Try fetching from the serverless API endpoint first (for Vercel)
+    let res = await fetch('/api/config');
+    let config = null;
     if (res.ok) {
-      const config = await res.json();
-      if (config.supabaseUrl && config.supabaseAnonKey && config.supabaseUrl !== "YOUR_SUPABASE_PROJECT_URL" && typeof supabase !== 'undefined') {
-        supabaseClient = supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
-        console.log('Supabase initialized successfully from config.json.');
+      config = await res.json();
+    }
+    
+    // If API endpoint is not available or keys are missing, fallback to local config.json
+    if (!config || !config.supabaseUrl || !config.supabaseAnonKey) {
+      res = await fetch('config.json');
+      if (res.ok) {
+        config = await res.json();
       }
     }
+
+    if (config && config.supabaseUrl && config.supabaseAnonKey && config.supabaseUrl !== "YOUR_SUPABASE_PROJECT_URL" && typeof supabase !== 'undefined') {
+      supabaseClient = supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+      console.log('Supabase initialized successfully.');
+    }
   } catch (e) {
-    console.warn('config.json not found or invalid. Falling back to localStorage.');
+    console.warn('Could not initialize Supabase. Falling back to localStorage.', e);
   }
 }
 initSupabase();
