@@ -1744,29 +1744,56 @@ function handleSignUpSubmit() {
   }
 }
 
-function authenticateUser(email) {
+function authenticateUser(email, bypassWelcome = false) {
   STATE.user.isAuthenticated = true;
   STATE.user.email = email;
 
+  // Persist session locally
+  localStorage.setItem('IRON_CLUB_USER_EMAIL', email);
+
   // Update UI Elements
   document.getElementById('main-nav').style.display = 'flex';
-  document.getElementById('user-status-area').style.display = 'flex';
-  document.getElementById('user-display-email').textContent = email;
+  
+  // Show navigation signout button
+  const navSignout = document.getElementById('btn-nav-signout');
+  if (navSignout) navSignout.style.display = 'block';
+
+  // Mobile menu user area configuration
+  const drawerUserArea = document.getElementById('drawer-user-area');
+  if (drawerUserArea) drawerUserArea.style.display = 'flex';
 
   // Load custom splits from database/local storage
   loadCustomSplits(email);
 
-  // Trigger Welcome sequence
-  triggerWelcomeSequence();
+  if (bypassWelcome) {
+    switchSection('fitness-guide');
+  } else {
+    // Trigger Welcome sequence
+    triggerWelcomeSequence();
+  }
 }
 
 function handleSignOut() {
   STATE.user.isAuthenticated = false;
   STATE.user.email = '';
 
+  // Clear session persistency
+  localStorage.removeItem('IRON_CLUB_USER_EMAIL');
+
   // Update Navigation display
   document.getElementById('main-nav').style.display = 'none';
-  document.getElementById('user-status-area').style.display = 'none';
+  
+  const navSignout = document.getElementById('btn-nav-signout');
+  if (navSignout) navSignout.style.display = 'none';
+
+  const drawerUserArea = document.getElementById('drawer-user-area');
+  if (drawerUserArea) drawerUserArea.style.display = 'none';
+
+  // Close mobile drawer if open
+  const drawer = document.getElementById('mobile-menu-drawer');
+  const backdrop = document.getElementById('drawer-backdrop');
+  if (drawer) drawer.classList.remove('active');
+  if (backdrop) backdrop.classList.remove('active');
   
   // Remove custom splits from PROGRAMS_DB
   Object.keys(PROGRAMS_DB).forEach(id => {
@@ -2185,7 +2212,7 @@ function openMuscleDrilldown(muscleKey) {
     const cleanTitle = sub.title.replace(/\s*\(.*\)/, '').replace('BICEPS ', '').replace('FOREARMS ', '');
     
     const card = document.createElement('div');
-    card.className = `biceps-category-card entrance-animate ${idx === 0 ? 'active' : ''}`;
+    card.className = `biceps-category-card entrance-animate`;
     card.innerHTML = `
       <div class="biceps-category-thumb">
         ${iconSvg}
@@ -2204,9 +2231,24 @@ function openMuscleDrilldown(muscleKey) {
     `;
 
     card.addEventListener('click', () => {
+      const isActive = card.classList.contains('active');
+      
+      // Clear active class from all category cards
       subContainer.querySelectorAll('.biceps-category-card').forEach(c => c.classList.remove('active'));
-      card.classList.add('active');
-      positionAndRender(idx);
+      
+      if (isActive) {
+        // Toggle close: remove expanded class and clear content after transition
+        targetListDiv.classList.remove('expanded');
+        setTimeout(() => {
+          if (!targetListDiv.classList.contains('expanded')) {
+            targetListDiv.innerHTML = '';
+          }
+        }, 800);
+      } else {
+        // Toggle open: activate card and render exercises inline
+        card.classList.add('active');
+        positionAndRender(idx);
+      }
     });
 
     gridDiv.appendChild(card);
@@ -2219,8 +2261,7 @@ function openMuscleDrilldown(muscleKey) {
   targetListDiv.id = 'biceps-exercises-container';
   targetListDiv.className = 'exercises-collapse-container';
 
-  // Position and render first category by default
-  positionAndRender(0);
+  // Start closed by default - no positionAndRender(0) called initially
 
   function positionAndRender(idx) {
     // 1. Collapse first to allow smooth drawbridge effect
@@ -3407,6 +3448,12 @@ window.deleteIntakeEntry = function(type, id) {
    9. INITIALIZATION BINDINGS
    ========================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
+  // Auto-login check
+  const savedEmail = localStorage.getItem('IRON_CLUB_USER_EMAIL');
+  if (savedEmail) {
+    authenticateUser(savedEmail, true); // Auto-login and bypass welcome screen
+  }
+
   // Navigation Bindings
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', (e) => {
@@ -3414,6 +3461,51 @@ document.addEventListener('DOMContentLoaded', () => {
       switchSection(targetSec);
     });
   });
+
+  // Mobile Hamburger Menu Bindings
+  const mobileToggle = document.getElementById('mobile-menu-toggle');
+  const drawer = document.getElementById('mobile-menu-drawer');
+  const backdrop = document.getElementById('drawer-backdrop');
+  const drawerClose = document.getElementById('drawer-close');
+
+  if (mobileToggle && drawer && backdrop && drawerClose) {
+    const openMenu = () => {
+      drawer.classList.add('active');
+      backdrop.classList.add('active');
+    };
+
+    const closeMenu = () => {
+      drawer.classList.remove('active');
+      backdrop.classList.remove('active');
+    };
+
+    mobileToggle.addEventListener('click', openMenu);
+    drawerClose.addEventListener('click', closeMenu);
+    backdrop.addEventListener('click', closeMenu);
+
+    // Bind mobile drawer nav items
+    drawer.querySelectorAll('.drawer-nav-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        const targetSec = e.target.getAttribute('data-section');
+        
+        // Sync active nav item class across both nav bars
+        drawer.querySelectorAll('.drawer-nav-item').forEach(dItem => {
+          dItem.classList.remove('active');
+        });
+        e.target.classList.add('active');
+
+        document.querySelectorAll('.nav-item').forEach(nItem => {
+          nItem.classList.remove('active');
+          if (nItem.getAttribute('data-section') === targetSec) {
+            nItem.classList.add('active');
+          }
+        });
+
+        switchSection(targetSec);
+        closeMenu();
+      });
+    });
+  }
 
   // Auth Toggle tabs
   const tabLogin = document.getElementById('tab-login');
@@ -3438,7 +3530,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Eye toggle password
   document.querySelectorAll('.password-toggle').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      // Find parent/sibling element
       const targetId = btn.getAttribute('data-target');
       const input = document.getElementById(targetId);
       
@@ -3452,8 +3543,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Sign out button
+  // Sign out buttons
   document.getElementById('btn-signout').addEventListener('click', handleSignOut);
+  
+  const navSignout = document.getElementById('btn-nav-signout');
+  if (navSignout) {
+    navSignout.addEventListener('click', handleSignOut);
+  }
+
+  const drawerSignout = document.getElementById('drawer-btn-signout');
+  if (drawerSignout) {
+    drawerSignout.addEventListener('click', handleSignOut);
+  }
 
   // Form Submits
   formLogin.addEventListener('submit', handleLoginSubmit);
@@ -3770,16 +3871,17 @@ function buildDaysAccordion() {
           <div class="muscle-entry-block">
             <div class="muscle-block-title" id="primary-block-title-${day}">PRIMARY MUSCLE</div>
             <div class="chip-matrix" id="primary-chips-${day}"></div>
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-              <div class="autocomplete-panel" style="flex: 2; min-width: 150px;">
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; width: 100%;">
+              <div class="autocomplete-panel" style="flex: 2; min-width: 150px; position: relative;">
                 <input type="text" class="input-vintage search-type-input" id="primary-input-${day}" placeholder="Type exercise name..." data-day="${day}" data-tier="primary" autocomplete="off" style="width: 100%;">
                 <div class="autocomplete-suggestions" id="primary-suggestions-${day}"></div>
               </div>
               <div style="display: flex; gap: 0.3rem; align-items: center;">
-                <input type="number" class="input-vintage sets-input" id="primary-sets-${day}" placeholder="Sets" data-day="${day}" data-tier="primary" style="width: 55px; text-align: center;" min="1" value="3" title="Number of Sets">
+                <input type="number" class="input-vintage sets-input" id="primary-sets-${day}" placeholder="Sets" data-day="${day}" data-tier="primary" style="width: 50px; text-align: center;" min="1" value="3" title="Number of Sets">
                 <span style="font-size: 0.75rem; color: var(--text-secondary);">x</span>
-                <input type="text" class="input-vintage reps-input" id="primary-reps-${day}" placeholder="Reps" data-day="${day}" data-tier="primary" style="width: 75px; text-align: center;" value="8-12" title="Reps Range">
+                <input type="text" class="input-vintage reps-input" id="primary-reps-${day}" placeholder="Reps" data-day="${day}" data-tier="primary" style="width: 65px; text-align: center;" value="8-12" title="Reps Range">
               </div>
+              <button type="button" class="btn-vintage btn-add-exercise" data-day="${day}" data-tier="primary" style="padding: 0.5rem 0.8rem; font-size: 0.8rem; font-weight: bold; background: var(--color-cyan); border: none; border-radius: 4px; color: #121212; cursor: pointer; display: flex; align-items: center; justify-content: center; height: 38px;">ADD</button>
             </div>
           </div>
           
@@ -3787,16 +3889,17 @@ function buildDaysAccordion() {
           <div class="muscle-entry-block">
             <div class="muscle-block-title" id="secondary-block-title-${day}">SECONDARY MUSCLE</div>
             <div class="chip-matrix" id="secondary-chips-${day}"></div>
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-              <div class="autocomplete-panel" style="flex: 2; min-width: 150px;">
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; width: 100%;">
+              <div class="autocomplete-panel" style="flex: 2; min-width: 150px; position: relative;">
                 <input type="text" class="input-vintage search-type-input" id="secondary-input-${day}" placeholder="Type exercise name..." data-day="${day}" data-tier="secondary" autocomplete="off" style="width: 100%;">
                 <div class="autocomplete-suggestions" id="secondary-suggestions-${day}"></div>
               </div>
               <div style="display: flex; gap: 0.3rem; align-items: center;">
-                <input type="number" class="input-vintage sets-input" id="secondary-sets-${day}" placeholder="Sets" data-day="${day}" data-tier="secondary" style="width: 55px; text-align: center;" min="1" value="3" title="Number of Sets">
+                <input type="number" class="input-vintage sets-input" id="secondary-sets-${day}" placeholder="Sets" data-day="${day}" data-tier="secondary" style="width: 50px; text-align: center;" min="1" value="3" title="Number of Sets">
                 <span style="font-size: 0.75rem; color: var(--text-secondary);">x</span>
-                <input type="text" class="input-vintage reps-input" id="secondary-reps-${day}" placeholder="Reps" data-day="${day}" data-tier="secondary" style="width: 75px; text-align: center;" value="8-12" title="Reps Range">
+                <input type="text" class="input-vintage reps-input" id="secondary-reps-${day}" placeholder="Reps" data-day="${day}" data-tier="secondary" style="width: 65px; text-align: center;" value="8-12" title="Reps Range">
               </div>
+              <button type="button" class="btn-vintage btn-add-exercise" data-day="${day}" data-tier="secondary" style="padding: 0.5rem 0.8rem; font-size: 0.8rem; font-weight: bold; background: var(--color-cyan); border: none; border-radius: 4px; color: #121212; cursor: pointer; display: flex; align-items: center; justify-content: center; height: 38px;">ADD</button>
             </div>
           </div>
           
@@ -3822,16 +3925,17 @@ function buildDaysAccordion() {
             <div class="muscle-entry-block">
               <div class="muscle-block-title" id="tertiary-block-title-${day}">TERTIARY MUSCLE</div>
               <div class="chip-matrix" id="tertiary-chips-${day}"></div>
-              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-                <div class="autocomplete-panel" style="flex: 2; min-width: 150px;">
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; width: 100%;">
+                <div class="autocomplete-panel" style="flex: 2; min-width: 150px; position: relative;">
                   <input type="text" class="input-vintage search-type-input" id="tertiary-input-${day}" placeholder="Type exercise name..." data-day="${day}" data-tier="tertiary" autocomplete="off" style="width: 100%;">
                   <div class="autocomplete-suggestions" id="tertiary-suggestions-${day}"></div>
                 </div>
                 <div style="display: flex; gap: 0.3rem; align-items: center;">
-                  <input type="number" class="input-vintage sets-input" id="tertiary-sets-${day}" placeholder="Sets" data-day="${day}" data-tier="tertiary" style="width: 55px; text-align: center;" min="1" value="3" title="Number of Sets">
+                  <input type="number" class="input-vintage sets-input" id="tertiary-sets-${day}" placeholder="Sets" data-day="${day}" data-tier="tertiary" style="width: 50px; text-align: center;" min="1" value="3" title="Number of Sets">
                   <span style="font-size: 0.75rem; color: var(--text-secondary);">x</span>
-                  <input type="text" class="input-vintage reps-input" id="tertiary-reps-${day}" placeholder="Reps" data-day="${day}" data-tier="tertiary" style="width: 75px; text-align: center;" value="8-12" title="Reps Range">
+                  <input type="text" class="input-vintage reps-input" id="tertiary-reps-${day}" placeholder="Reps" data-day="${day}" data-tier="tertiary" style="width: 65px; text-align: center;" value="8-12" title="Reps Range">
                 </div>
+                <button type="button" class="btn-vintage btn-add-exercise" data-day="${day}" data-tier="tertiary" style="padding: 0.5rem 0.8rem; font-size: 0.8rem; font-weight: bold; background: var(--color-cyan); border: none; border-radius: 4px; color: #121212; cursor: pointer; display: flex; align-items: center; justify-content: center; height: 38px;">ADD</button>
               </div>
             </div>
           </div>
@@ -4136,6 +4240,15 @@ function bindAccordionItemListeners(day) {
         }
       });
     }
+
+    // Bind Add button click handler
+    const btn = document.querySelector(`.btn-add-exercise[data-day="${day}"][data-tier="${tier}"]`);
+    if (btn) {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        confirmAddExercise(day, tier);
+      });
+    }
   });
 }
 
@@ -4143,11 +4256,6 @@ function showSuggestions(day, tier, query) {
   const suggestionsDiv = document.getElementById(`${tier}-suggestions-${day}`);
   if (!suggestionsDiv) return;
   suggestionsDiv.innerHTML = '';
-
-  if (!query) {
-    suggestionsDiv.style.display = 'none';
-    return;
-  }
 
   const selectedMuscle = customSplitData.days[day][`${tier}Muscle`].toLowerCase();
   let searchPool = [];
@@ -4168,7 +4276,14 @@ function showSuggestions(day, tier, query) {
     });
   }
 
-  const matches = searchPool.filter(exName => exName.toLowerCase().includes(query.toLowerCase()));
+  let matches = [];
+  if (!query) {
+    // Show 3 default suggestions from pool when input is empty
+    matches = searchPool.slice(0, 3);
+  } else {
+    matches = searchPool.filter(exName => exName.toLowerCase().includes(query.toLowerCase()));
+  }
+
   const uniqueMatches = [...new Set(matches)].slice(0, 5);
 
   if (uniqueMatches.length === 0) {
@@ -4176,10 +4291,29 @@ function showSuggestions(day, tier, query) {
     return;
   }
 
+  // Prepend a title label if the suggestions are initial recommendations
+  if (!query) {
+    const label = document.createElement('div');
+    label.style.fontSize = '0.65rem';
+    label.style.color = 'var(--text-secondary)';
+    label.style.padding = '0.4rem 0.6rem 0.2rem 0.6rem';
+    label.style.textTransform = 'uppercase';
+    label.style.fontWeight = 'bold';
+    label.style.letterSpacing = '0.05em';
+    label.textContent = 'Suggested Workouts:';
+    suggestionsDiv.appendChild(label);
+  }
+
   uniqueMatches.forEach(match => {
     const item = document.createElement('div');
     item.className = 'autocomplete-item';
     item.textContent = match;
+    
+    // Prevent focus blur from hiding suggestions list on mouse down
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+    });
+
     item.addEventListener('click', () => {
       const input = document.getElementById(`${tier}-input-${day}`);
       input.value = match;
@@ -4195,12 +4329,21 @@ function confirmAddExercise(day, tier) {
   const input = document.getElementById(`${tier}-input-${day}`);
   if (!input) return;
   const value = input.value.trim();
-  if (!value) return;
 
   const setsEl = document.getElementById(`${tier}-sets-${day}`);
   const repsEl = document.getElementById(`${tier}-reps-${day}`);
-  const sets = setsEl ? setsEl.value.trim() || '3' : '3';
-  const reps = repsEl ? repsEl.value.trim() || '8-12' : '8-12';
+  const sets = setsEl ? setsEl.value.trim() : '';
+  const reps = repsEl ? repsEl.value.trim() : '';
+
+  if (!value) {
+    showToast('Please enter an exercise name!', true);
+    return;
+  }
+  if (!sets || !reps) {
+    showToast('Please enter number of sets and reps!', true);
+    return;
+  }
+
   const repsStr = `${sets} x ${reps}`;
 
   customSplitData.days[day][`${tier}Exercises`].push({
@@ -4215,15 +4358,28 @@ function confirmAddExercise(day, tier) {
 
   renderChips(day, tier);
   updateDaySummary(day);
-  showSuccessToast();
+  showToast('Exercise Added Successfully', false);
 }
 
-function showSuccessToast() {
+function showToast(message, isError = false) {
   const toast = document.getElementById('custom-split-toast');
   const msgEl = document.getElementById('custom-split-toast-msg');
   if (!toast) return;
 
-  msgEl.textContent = 'Exercise Added Successfully';
+  msgEl.textContent = message;
+  
+  if (isError) {
+    toast.style.background = 'rgba(220, 38, 38, 0.95)'; // Crimson Red
+    toast.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+    toast.style.color = '#fff';
+    toast.style.boxShadow = '0 0 15px rgba(220, 38, 38, 0.4)';
+  } else {
+    toast.style.background = 'rgba(10, 37, 30, 0.9)'; // Dark Green
+    toast.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+    toast.style.color = 'var(--color-green)';
+    toast.style.boxShadow = '0 0 15px rgba(16, 185, 129, 0.2)';
+  }
+  
   toast.classList.add('active');
 
   if (window.toastTimeout) {

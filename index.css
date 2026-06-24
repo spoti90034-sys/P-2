@@ -3083,6 +3083,309 @@ body.dark-room-active .dark-room-overlay {
   }
 }
 
+/* Mobile Menu Toggle Button (Hamburger) */
+.mobile-menu-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 24px;
+  height: 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  z-index: 1006;
+}
+
+.mobile-menu-toggle span {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background-color: var(--text-primary);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.mobile-menu-toggle:hover span {
+  background-color: var(--color-cyan);
+}
+
+/* Mobile Menu Drawer Overlay */
+.mobile-menu-drawer {
+  position: fixed;
+  top: 0;
+  left: -290px; /* Hidden on left */
+  width: 280px;
+  height: 100%;
+  background: rgba(8, 10, 24, 0.98);
+  backdrop-filter: blur(35px);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 1005;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  transition: left 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 10px 0 35px rgba(0, 0, 0, 0.7);
+}
+
+.mobile-menu-drawer.active {
+  left: 0; /* Slide in */
+}
+
+/* Drawer Backdrop Blur Mask */
+.drawer-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 1004;
+  display: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.drawer-backdrop.active {
+  display: block;
+  opacity: 1;
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 1rem;
+}
+
+.drawer-close {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 2.2rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 0.8;
+  transition: color 0.2s ease;
+}
+
+.drawer-close:hover {
+  color: var(--color-cyan);
+}
+
+.drawer-nav-links {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 1;
+}
+
+.drawer-nav-item {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.1rem;
+  color: var(--text-secondary);
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-left: 3px solid transparent;
+  text-transform: uppercase;
+}
+
+.drawer-nav-item:hover, .drawer-nav-item.active {
+  color: var(--text-primary);
+  background: rgba(0, 242, 254, 0.05);
+  border-left-color: var(--color-cyan);
+  text-shadow: var(--shadow-cyan-glow);
+}
+
+.drawer-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-footer .btn-signout {
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(220, 38, 38, 0.12);
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  color: #ff4d4d;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+}
+
+.drawer-footer .btn-signout:hover {
+  background: rgba(220, 38, 38, 0.25);
+  border-color: #ff4d4d;
+  box-shadow: 0 0 10px rgba(220, 38, 38, 0.3);
+}
+
+/* ADD Button inside Custom Split Builder */
+.btn-add-exercise {
+  transition: all 0.2s ease;
+}
+.btn-add-exercise:hover {
+  filter: brightness(1.2);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-cyan-glow);
+}
+.btn-add-exercise:active {
+  transform: translateY(1px);
+}
+
+/* Custom Split inputs sizing */
+.muscle-entry-block .sets-input,
+.muscle-entry-block .reps-input {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+/* Mobile Media Query Adjustments to reduce congestion and scale fonts */
+@media (max-width: 800px) {
+  .mobile-menu-toggle {
+    display: flex;
+  }
+  
+  .vintage-header {
+    padding: 1rem 1.5rem !important;
+  }
+  
+  .vintage-header .nav-links {
+    display: none !important; /* Hide desktop nav link bar */
+  }
+
+  .main-viewport {
+    padding: 1rem 0.8rem !important;
+  }
+
+  /* Scale down header fonts and layout elements to look premium */
+  .logo-title {
+    font-size: 1.4rem !important;
+  }
+  
+  .logo-subtitle {
+    font-size: 0.65rem !important;
+  }
+
+  .section-title {
+    font-size: 1.8rem !important;
+    letter-spacing: 0.08em !important;
+  }
+
+  /* Make exercise cards in guide list extremely sleek and horizontal on mobile */
+  .exercises-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.8rem !important;
+  }
+
+  .exercise-card {
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: 0.6rem 0.8rem !important;
+    gap: 0.8rem !important;
+    background: rgba(8, 10, 22, 0.5) !important;
+  }
+
+  .exercise-card:hover {
+    transform: translateY(-1px) !important;
+  }
+
+  .exercise-img-placeholder {
+    width: 50px !important;
+    height: 50px !important;
+    min-width: 50px;
+    border-radius: 6px !important;
+    border-bottom: none !important;
+  }
+
+  .exercise-img-placeholder svg {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .exercise-img-placeholder span {
+    display: none !important; /* Hide static text "Illustration" */
+  }
+
+  .exercise-details {
+    padding: 0 !important;
+    flex: 1;
+    gap: 0.3rem !important;
+  }
+
+  .exercise-name {
+    font-size: 0.95rem !important;
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+  }
+
+  .exercise-meta {
+    font-size: 0.7rem !important;
+    justify-content: flex-start !important;
+    gap: 0.4rem;
+  }
+
+  .exercise-reps {
+    position: static !important;
+    font-size: 0.7rem !important;
+    color: var(--color-gold) !important;
+    background: transparent !important;
+    padding: 0 !important;
+    border-top: none !important;
+    opacity: 0.9;
+  }
+
+  /* Encapsulate exercises container on mobile to prevent pushing page down */
+  .exercises-collapse-container.expanded {
+    max-height: 400px !important;
+    overflow-y: auto !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: rgba(8, 10, 22, 0.75) !important;
+    padding: 0.8rem !important;
+    border-radius: 8px !important;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.5) !important;
+  }
+
+  .exercises-collapse-container::-webkit-scrollbar {
+    width: 4px;
+  }
+  .exercises-collapse-container::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .exercises-collapse-container::-webkit-scrollbar-thumb {
+    background: var(--color-cyan);
+    border-radius: 4px;
+  }
+
+  /* Modal Splits Builder Mobile Spacings */
+  .split-modal-content {
+    width: 95% !important;
+    max-height: 90vh !important;
+    padding: 1.2rem !important;
+  }
+
+  /* Muscle Guide category card text sizes */
+  .biceps-category-thumb {
+    height: 100px !important;
+  }
+  
+  .biceps-category-title {
+    font-size: 0.75rem !important;
+  }
+}
+
 
 
 

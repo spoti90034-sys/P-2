@@ -71,29 +71,63 @@
 
     <!-- 1. VINTAGE HEADER / NAVIGATION -->
     <header class="vintage-header">
-      <div class="logo-container entrance-animate">
-        <div class="logo-icon">I</div>
-        <div class="logo-text">
-          <span class="logo-title laser-text">Iron Club</span>
-          <span class="logo-subtitle laser-text">Est. 2026</span>
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <!-- Hamburger Button (Mobile Only) -->
+        <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Open Navigation Menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        <div class="logo-container entrance-animate">
+          <div class="logo-icon">I</div>
+          <div class="logo-text">
+            <span class="logo-title laser-text">Iron Club</span>
+            <span class="logo-subtitle laser-text">Est. 2026</span>
+          </div>
         </div>
       </div>
       
       <!-- Nav Links (Visible when logged in / bypassed) -->
-      <nav class="nav-links entrance-animate" id="main-nav" style="display: none;">
+      <nav class="nav-links entrance-animate" id="main-nav" style="display: none; align-items: center;">
         <div class="nav-item active laser-text" data-section="fitness-guide">Guide</div>
         <div class="nav-item laser-text" data-section="workout-splits">Splits</div>
         <div class="nav-item laser-text" data-section="cardio-module">Cardio</div>
         <div class="nav-item laser-text" data-section="analytics-ledger">Analytics</div>
         <div class="nav-item laser-text" data-section="intake-calculators">Intake</div>
+        <div class="nav-item laser-text" id="btn-nav-signout" style="display: none; color: #ff4d4d !important; margin-left: 1.5rem;">Sign Out</div>
       </nav>
 
       <!-- User Authentication Status / Sign Out -->
-      <div class="user-status entrance-animate" id="user-status-area" style="display: none;">
+      <div class="user-status entrance-animate" id="user-status-area" style="display: none !important;">
         <span id="user-display-email" style="font-size: 0.8rem; color: var(--color-brass); font-weight: 600;">Guest</span>
         <button class="btn-signout" id="btn-signout">Sign Out</button>
       </div>
     </header>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="drawer-backdrop" id="drawer-backdrop"></div>
+    <div class="mobile-menu-drawer" id="mobile-menu-drawer">
+      <div class="drawer-header">
+        <div class="logo-container" style="margin: 0;">
+          <div class="logo-icon">I</div>
+          <div class="logo-text">
+            <span class="logo-title" style="font-family: var(--font-display); font-size: 1.2rem; color: #fff; font-weight: bold; letter-spacing: 0.05em;">Iron Club</span>
+          </div>
+        </div>
+        <button class="drawer-close" id="drawer-close" aria-label="Close Navigation Menu">&times;</button>
+      </div>
+      <nav class="drawer-nav-links">
+        <div class="drawer-nav-item active" data-section="fitness-guide">Guide</div>
+        <div class="drawer-nav-item" data-section="workout-splits">Splits</div>
+        <div class="drawer-nav-item" data-section="cardio-module">Cardio</div>
+        <div class="drawer-nav-item" data-section="analytics-ledger">Analytics</div>
+        <div class="drawer-nav-item" data-section="intake-calculators">Intake</div>
+      </nav>
+      <div class="drawer-footer" id="drawer-user-area" style="display: none;">
+        <button class="btn-signout" id="drawer-btn-signout">Sign Out</button>
+      </div>
+    </div>
 
     <!-- Main Viewport containing sections -->
     <main class="main-viewport">
