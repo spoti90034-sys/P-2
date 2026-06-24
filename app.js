@@ -1730,17 +1730,57 @@ function switchSection(sectionId) {
   }
 }
 
-function handleLoginSubmit() {
-  const emailVal = document.getElementById('login-email').value;
-  if (emailVal) {
-    authenticateUser(emailVal);
+async function handleLoginSubmit(e) {
+  if (e) e.preventDefault();
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  
+  if (!email || !password) return;
+
+  if (supabaseClient) {
+    const loginBtn = document.querySelector('#form-login button[type="submit"]');
+    const origText = loginBtn ? loginBtn.textContent : '';
+    if (loginBtn) loginBtn.textContent = 'SECURE LOGGING IN...';
+    
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    
+    if (loginBtn) loginBtn.textContent = origText;
+
+    if (error) {
+      showToast(error.message, true);
+    } else {
+      authenticateUser(data.user.email);
+    }
+  } else {
+    // Local fallback
+    authenticateUser(email);
   }
 }
 
-function handleSignUpSubmit() {
-  const emailVal = document.getElementById('signup-email').value;
-  if (emailVal) {
-    authenticateUser(emailVal);
+async function handleSignUpSubmit(e) {
+  if (e) e.preventDefault();
+  const email = document.getElementById('signup-email').value;
+  const password = document.getElementById('signup-password').value;
+  
+  if (!email || !password) return;
+
+  if (supabaseClient) {
+    const signupBtn = document.querySelector('#form-signup button[type="submit"]');
+    const origText = signupBtn ? signupBtn.textContent : '';
+    if (signupBtn) signupBtn.textContent = 'SECURE REGISTERING...';
+
+    const { data, error } = await supabaseClient.auth.signUp({ email, password });
+    
+    if (signupBtn) signupBtn.textContent = origText;
+
+    if (error) {
+      showToast(error.message, true);
+    } else {
+      showToast('Account Created successfully!', false);
+      authenticateUser(data.user.email);
+    }
+  } else {
+    authenticateUser(email);
   }
 }
 
@@ -1748,8 +1788,10 @@ function authenticateUser(email, bypassWelcome = false) {
   STATE.user.isAuthenticated = true;
   STATE.user.email = email;
 
-  // Persist session locally
-  localStorage.setItem('IRON_CLUB_USER_EMAIL', email);
+  // Local fallback persistence
+  if (!supabaseClient) {
+    localStorage.setItem('IRON_CLUB_USER_EMAIL', email);
+  }
 
   // Update UI Elements
   document.getElementById('main-nav').style.display = 'flex';
@@ -1773,12 +1815,16 @@ function authenticateUser(email, bypassWelcome = false) {
   }
 }
 
-function handleSignOut() {
+async function handleSignOut() {
   STATE.user.isAuthenticated = false;
   STATE.user.email = '';
 
-  // Clear session persistency
+  // Clear local storage guest session
   localStorage.removeItem('IRON_CLUB_USER_EMAIL');
+
+  if (supabaseClient) {
+    await supabaseClient.auth.signOut();
+  }
 
   // Update Navigation display
   document.getElementById('main-nav').style.display = 'none';
@@ -3449,9 +3495,17 @@ window.deleteIntakeEntry = function(type, id) {
    ========================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
   // Auto-login check
-  const savedEmail = localStorage.getItem('IRON_CLUB_USER_EMAIL');
-  if (savedEmail) {
-    authenticateUser(savedEmail, true); // Auto-login and bypass welcome screen
+  if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+    supabaseClient.auth.getSession().then(({ data: { session } }) => {
+      if (session && session.user) {
+        authenticateUser(session.user.email, true); // Auto-login and bypass welcome screen
+      }
+    });
+  } else {
+    const savedEmail = localStorage.getItem('IRON_CLUB_USER_EMAIL');
+    if (savedEmail) {
+      authenticateUser(savedEmail, true);
+    }
   }
 
   // Navigation Bindings
@@ -3561,8 +3615,29 @@ document.addEventListener('DOMContentLoaded', () => {
   formSignUp.addEventListener('submit', handleSignUpSubmit);
 
   // Guest Bypass
-  document.getElementById('btn-guest-login').addEventListener('click', () => {
-    authenticateUser('guest@ironclub.com');
+  document.getElementById('btn-guest-login').addEventListener('click', async () => {
+    const guestEmail = 'guest@ironclub.com';
+    const guestPass = 'guest12345';
+    
+    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+      // Try logging in first
+      let { data, error } = await supabaseClient.auth.signInWithPassword({ email: guestEmail, password: guestPass });
+      if (error) {
+        // If login fails (user might not exist yet), try to sign up
+        const signUpResult = await supabaseClient.auth.signUp({ email: guestEmail, password: guestPass });
+        if (signUpResult.error) {
+          showToast(signUpResult.error.message, true);
+          return;
+        }
+        // Signup succeeded, use user email
+        authenticateUser(signUpResult.data.user.email);
+      } else {
+        // Login succeeded, use user email
+        authenticateUser(data.user.email);
+      }
+    } else {
+      authenticateUser(guestEmail);
+    }
   });
 
   // Init sections
