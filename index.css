@@ -3255,10 +3255,16 @@ body.dark-room-active .dark-room-overlay {
 /* Mobile Media Query Adjustments to reduce congestion and scale fonts */
 @media (max-width: 800px) {
   .mobile-menu-toggle {
+    position: absolute;
+    left: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
     display: flex;
   }
   
   .vintage-header {
+    position: relative !important;
+    justify-content: center !important;
     padding: 1rem 1.5rem !important;
   }
   
@@ -3370,10 +3376,55 @@ body.dark-room-active .dark-room-overlay {
   }
 
   /* Modal Splits Builder Mobile Spacings */
-  .split-modal-content {
+  #custom-split-modal .rest-modal-card {
     width: 95% !important;
     max-height: 90vh !important;
     padding: 1.2rem !important;
+  }
+
+  /* De-congest splits accordion input cells on mobile */
+  .muscle-entry-block {
+    padding: 0.8rem !important;
+    margin-bottom: 0.8rem !important;
+  }
+  
+  .day-accordion-content {
+    padding: 0.8rem !important;
+  }
+
+  /* Re-arrange exercise rows to stack name above sets/reps/ADD on mobile */
+  .muscle-entry-block > div[style*="display: flex"] {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.6rem !important;
+  }
+
+  .autocomplete-panel {
+    width: 100% !important;
+    flex: none !important;
+  }
+
+  .muscle-entry-block div[style*="align-items: center"] {
+    width: 100% !important;
+    display: flex !important;
+    gap: 0.5rem !important;
+    align-items: center !important;
+  }
+
+  .muscle-entry-block .sets-input {
+    width: 70px !important; /* Make sets/reps larger for clear reading */
+    flex: 1 !important;
+  }
+
+  .muscle-entry-block .reps-input {
+    width: 90px !important; /* Make sets/reps larger for clear reading */
+    flex: 1.2 !important;
+  }
+
+  .muscle-entry-block .btn-add-exercise {
+    flex: 2 !important;
+    width: auto !important;
+    height: 38px !important;
   }
 
   /* Muscle Guide category card text sizes */
