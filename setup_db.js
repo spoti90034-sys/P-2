@@ -64,12 +64,13 @@ async function runSetup() {
       DROP POLICY IF EXISTS "Users can delete their own splits" ON public.custom_splits;
       DROP POLICY IF EXISTS "Users can manage their own splits" ON public.custom_splits;
 
-      -- Create policy for all operations
+      -- Create secure policy for authenticated users using JWT email claim
       CREATE POLICY "Users can manage their own splits" 
       ON public.custom_splits 
       FOR ALL 
-      USING (true)
-      WITH CHECK (true);
+      TO authenticated
+      USING (auth.jwt() ->> 'email' = user_email)
+      WITH CHECK (auth.jwt() ->> 'email' = user_email);
     `;
 
     await client.query(sqlScript);

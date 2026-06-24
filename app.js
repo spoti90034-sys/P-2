@@ -55,6 +55,16 @@ const STATE = {
   }
 };
 
+// HTML escaping helper to prevent XSS (cross-site scripting) injection
+function escapeHtml(str) {
+  if (typeof str !== 'string') return str || '';
+  return str.replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+}
+
 // Supabase Backend Configuration
 let supabaseClient = null;
 
@@ -83,7 +93,7 @@ async function initSupabase() {
     console.warn('Could not initialize Supabase. Falling back to localStorage.', e);
   }
 }
-initSupabase();
+const supabaseInitPromise = initSupabase();
 
 // Rank Titles corresponding to levels
 const RANKS = {
@@ -1737,19 +1747,27 @@ async function handleLoginSubmit(e) {
   
   if (!email || !password) return;
 
-  if (supabaseClient) {
-    const loginBtn = document.querySelector('#form-login button[type="submit"]');
-    const origText = loginBtn ? loginBtn.textContent : '';
-    if (loginBtn) loginBtn.textContent = 'SECURE LOGGING IN...';
-    
-    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-    
-    if (loginBtn) loginBtn.textContent = origText;
+  const loginBtn = document.querySelector('#form-login button[type="submit"]');
+  const origText = loginBtn ? loginBtn.textContent : '';
 
-    if (error) {
-      showToast(error.message, true);
-    } else {
-      authenticateUser(data.user.email);
+  if (supabaseClient) {
+    try {
+      if (loginBtn) loginBtn.textContent = 'SECURE LOGGING IN...';
+      
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      
+      if (loginBtn) loginBtn.textContent = origText;
+
+      if (error) {
+        showToast(error.message, true);
+      } else if (data && data.user) {
+        authenticateUser(data.user.email);
+      } else {
+        showToast('Login failed: Invalid session data', true);
+      }
+    } catch (err) {
+      if (loginBtn) loginBtn.textContent = origText;
+      showToast(err.message || 'Network error during login', true);
     }
   } else {
     // Local fallback
@@ -1764,20 +1782,28 @@ async function handleSignUpSubmit(e) {
   
   if (!email || !password) return;
 
+  const signupBtn = document.querySelector('#form-signup button[type="submit"]');
+  const origText = signupBtn ? signupBtn.textContent : '';
+
   if (supabaseClient) {
-    const signupBtn = document.querySelector('#form-signup button[type="submit"]');
-    const origText = signupBtn ? signupBtn.textContent : '';
-    if (signupBtn) signupBtn.textContent = 'SECURE REGISTERING...';
+    try {
+      if (signupBtn) signupBtn.textContent = 'SECURE REGISTERING...';
 
-    const { data, error } = await supabaseClient.auth.signUp({ email, password });
-    
-    if (signupBtn) signupBtn.textContent = origText;
+      const { data, error } = await supabaseClient.auth.signUp({ email, password });
+      
+      if (signupBtn) signupBtn.textContent = origText;
 
-    if (error) {
-      showToast(error.message, true);
-    } else {
-      showToast('Account Created successfully!', false);
-      authenticateUser(data.user.email);
+      if (error) {
+        showToast(error.message, true);
+      } else if (data && data.user) {
+        showToast('Account Created successfully!', false);
+        authenticateUser(data.user.email);
+      } else {
+        showToast('Registration failed: Invalid response', true);
+      }
+    } catch (err) {
+      if (signupBtn) signupBtn.textContent = origText;
+      showToast(err.message || 'Network error during registration', true);
     }
   } else {
     authenticateUser(email);
@@ -2580,8 +2606,8 @@ function initWorkoutSplits() {
       programWrapper.innerHTML = `
         <div class="program-header-bar">
           <div style="display:flex; flex-direction:column; gap:0.2rem;">
-            <span style="font-family:var(--font-display); font-size:1.4rem; font-weight:800; color:var(--color-cyan);">${program.name}</span>
-            <span style="font-size:0.75rem; color:var(--text-secondary);">${program.subtitle}</span>
+            <span style="font-family:var(--font-display); font-size:1.4rem; font-weight:800; color:var(--color-cyan);">${escapeHtml(program.name)}</span>
+            <span style="font-size:0.75rem; color:var(--text-secondary);">${escapeHtml(program.subtitle)}</span>
           </div>
           <div style="display:flex; align-items:center; gap:1rem;">
             ${isCustom ? `
@@ -2642,7 +2668,7 @@ function initWorkoutSplits() {
           <div class="split-header">
             <div class="split-title">
               <div class="split-day">${split.day}</div>
-              <div class="split-info">${split.title}</div>
+              <div class="split-info">${escapeHtml(split.title)}</div>
             </div>
             <div class="split-chevron">${split.isRest ? '❖' : '▼'}</div>
           </div>
@@ -2653,15 +2679,15 @@ function initWorkoutSplits() {
               <div class="split-sections">
                 ${split.sections.map(sec => `
                   <div class="split-section-box" style="padding:1rem;">
-                    <div class="split-section-title" style="font-size:1rem; margin-bottom:0.6rem;">${sec.name}</div>
+                    <div class="split-section-title" style="font-size:1rem; margin-bottom:0.6rem;">${escapeHtml(sec.name)}</div>
                     <ul class="split-exercise-list" style="gap:0.4rem;">
                       ${sec.exercises.map(ex => `
                         <li class="split-exercise-item" style="font-size:0.8rem;">
                           <div style="display:flex; flex-direction:column;">
-                            <span class="split-ex-name" style="color:var(--text-secondary); font-weight:700;">${ex.name}</span>
-                            ${ex.desc ? `<span class="split-ex-desc" style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">👉 ${ex.desc}</span>` : ''}
+                            <span class="split-ex-name" style="color:var(--text-secondary); font-weight:700;">${escapeHtml(ex.name)}</span>
+                            ${ex.desc ? `<span class="split-ex-desc" style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">👉 ${escapeHtml(ex.desc)}</span>` : ''}
                           </div>
-                          <span class="split-ex-reps">${ex.reps}</span>
+                          <span class="split-ex-reps">${escapeHtml(ex.reps)}</span>
                         </li>
                       `).join('')}
                     </ul>
@@ -3494,11 +3520,26 @@ window.deleteIntakeEntry = function(type, id) {
    9. INITIALIZATION BINDINGS
    ========================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
-  // Auto-login check
-  if (typeof supabaseClient !== 'undefined' && supabaseClient) {
-    supabaseClient.auth.getSession().then(({ data: { session } }) => {
-      if (session && session.user) {
-        authenticateUser(session.user.email, true); // Auto-login and bypass welcome screen
+  // Auto-login check (asynchronously, does not block event binding below)
+  if (typeof supabaseInitPromise !== 'undefined' && supabaseInitPromise) {
+    supabaseInitPromise.then(() => {
+      if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+        supabaseClient.auth.getSession().then(({ data: { session } }) => {
+          if (session && session.user) {
+            authenticateUser(session.user.email, true); // Auto-login and bypass welcome screen
+          }
+        });
+      } else {
+        const savedEmail = localStorage.getItem('IRON_CLUB_USER_EMAIL');
+        if (savedEmail) {
+          authenticateUser(savedEmail, true);
+        }
+      }
+    }).catch(err => {
+      console.error('Error waiting for Supabase initialization:', err);
+      const savedEmail = localStorage.getItem('IRON_CLUB_USER_EMAIL');
+      if (savedEmail) {
+        authenticateUser(savedEmail, true);
       }
     });
   } else {
@@ -3619,21 +3660,42 @@ document.addEventListener('DOMContentLoaded', () => {
     const guestEmail = 'guest@ironclub.com';
     const guestPass = 'guest12345';
     
+    const guestBtn = document.getElementById('btn-guest-login');
+    const origText = guestBtn ? guestBtn.textContent : '';
+
     if (typeof supabaseClient !== 'undefined' && supabaseClient) {
-      // Try logging in first
-      let { data, error } = await supabaseClient.auth.signInWithPassword({ email: guestEmail, password: guestPass });
-      if (error) {
-        // If login fails (user might not exist yet), try to sign up
-        const signUpResult = await supabaseClient.auth.signUp({ email: guestEmail, password: guestPass });
-        if (signUpResult.error) {
-          showToast(signUpResult.error.message, true);
-          return;
+      try {
+        if (guestBtn) guestBtn.textContent = 'SECURE LOGGING IN...';
+        
+        // Try logging in first
+        let { data, error } = await supabaseClient.auth.signInWithPassword({ email: guestEmail, password: guestPass });
+        if (error) {
+          // If login fails (user might not exist yet, or email is unconfirmed), try to sign up
+          const signUpResult = await supabaseClient.auth.signUp({ email: guestEmail, password: guestPass });
+          
+          if (guestBtn) guestBtn.textContent = origText;
+
+          if (signUpResult.error) {
+            showToast(signUpResult.error.message, true);
+            return;
+          }
+          
+          if (signUpResult.data && signUpResult.data.user) {
+            authenticateUser(signUpResult.data.user.email);
+          } else {
+            showToast('Guest signup returned empty user', true);
+          }
+        } else {
+          if (guestBtn) guestBtn.textContent = origText;
+          if (data && data.user) {
+            authenticateUser(data.user.email);
+          } else {
+            showToast('Guest login returned empty user', true);
+          }
         }
-        // Signup succeeded, use user email
-        authenticateUser(signUpResult.data.user.email);
-      } else {
-        // Login succeeded, use user email
-        authenticateUser(data.user.email);
+      } catch (err) {
+        if (guestBtn) guestBtn.textContent = origText;
+        showToast(err.message || 'Guest login failed', true);
       }
     } else {
       authenticateUser(guestEmail);
@@ -4115,8 +4177,8 @@ function renderChips(day, tier) {
     const reps = typeof ex === 'object' ? ex.reps : '3 x 8-12';
     
     chip.innerHTML = `
-      <span>${name}</span>
-      <span style="opacity: 0.65; font-size: 0.65rem; font-weight: normal; margin-left: 2px;">(${reps})</span>
+      <span>${escapeHtml(name)}</span>
+      <span style="opacity: 0.65; font-size: 0.65rem; font-weight: normal; margin-left: 2px;">(${escapeHtml(reps)})</span>
       <span class="delete-chip-btn" data-day="${day}" data-tier="${tier}" data-index="${idx}">×</span>
     `;
     chipsContainer.appendChild(chip);
