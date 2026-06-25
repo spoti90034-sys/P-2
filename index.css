@@ -3435,6 +3435,144 @@ body.dark-room-active .dark-room-overlay {
   .biceps-category-title {
     font-size: 0.75rem !important;
   }
+
+  /* Cardio Dashboard Mobile Adjustments */
+  .cardio-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+
+  .cardio-selectors {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.4rem !important;
+    padding: 0.4rem !important;
+  }
+
+  .cardio-select-btn {
+    padding: 0.6rem 0.4rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .timer-container {
+    width: 200px !important;
+    height: 200px !important;
+    padding: 1.2rem !important;
+  }
+
+  .timer-face {
+    font-size: 2.6rem !important;
+  }
+
+  .timer-target {
+    font-size: 0.65rem !important;
+  }
+
+  .timer-profile-name {
+    font-size: 0.85rem !important;
+    margin-top: 0.3rem !important;
+  }
+
+  .timer-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.6rem !important;
+    width: 100% !important;
+    max-width: 320px !important;
+    margin: 0.5rem auto 0 auto !important;
+  }
+
+  .timer-actions .btn-vintage {
+    padding: 0.5rem 0.3rem !important;
+    font-size: 0.75rem !important;
+    width: 100% !important;
+    text-align: center;
+  }
+
+  .ocr-upload-zone {
+    padding: 1.5rem !important;
+    min-height: 120px !important;
+  }
+
+  .ocr-upload-icon {
+    width: 32px !important;
+    height: 32px !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .ocr-upload-text {
+    font-size: 0.85rem !important;
+  }
+
+  .ocr-upload-subtext {
+    font-size: 0.65rem !important;
+  }
+
+  .cardio-goal-adjust {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
+    text-align: center;
+  }
+
+  .cardio-goal-adjust label {
+    font-size: 0.7rem !important;
+  }
+
+  .cardio-goal-adjust #cardio-target-input {
+    width: 100% !important;
+    max-width: 120px !important;
+    margin: 0 auto !important;
+  }
+
+  .cardio-simulate-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.6rem !important;
+  }
+
+  .cardio-simulate-buttons {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 0.4rem !important;
+    width: 100% !important;
+  }
+
+  .cardio-simulate-buttons .btn-vintage {
+    padding: 0.4rem 0.2rem !important;
+    font-size: 0.7rem !important;
+    width: 100% !important;
+  }
+
+  .level-badge-container {
+    gap: 1rem !important;
+  }
+
+  .level-orb {
+    width: 60px !important;
+    height: 60px !important;
+    min-width: 60px !important;
+  }
+
+  .level-orb-num {
+    font-size: 1.6rem !important;
+  }
+
+  .level-title-str {
+    font-size: 0.95rem !important;
+  }
+
+  .level-points-tracker {
+    font-size: 0.7rem !important;
+  }
+
+  .points-scaling-reference {
+    padding: 1rem !important;
+  }
+
+  .points-scaling-item {
+    font-size: 0.75rem !important;
+  }
 }
 
 

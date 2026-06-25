@@ -18,21 +18,15 @@ const STATE = {
     timerTargetMinutes: 25
   },
   protein: {
-    goal: 150,
-    entries: [
-      { id: 1, name: 'Eggs (3)', val: 18 },
-      { id: 2, name: 'Whey Protein Shake', val: 30 }
-    ]
+    goal: 0,
+    entries: []
   },
   water: {
     goal: 3.0,
-    entries: [
-      { id: 1, name: 'Morning Flask', val: 1.0 },
-      { id: 2, name: 'Workout Shaker', val: 0.75 }
-    ]
+    entries: []
   },
   attendance: [false, false, false, false, false, false, false], // Mon - Sun
-  monthlyStats: [35, 50, 75, 45, 90, 110, 60], // Simulated monthly values for graph
+  monthlyStats: [0, 0, 0, 0, 0, 0, 0], // Starting graph values for clean state
   splits: {
     active: false,
     activeProgramId: null,
@@ -3235,6 +3229,9 @@ function initAnalytics() {
   days.forEach((day, idx) => {
     const cell = document.createElement('div');
     cell.className = 'attendance-day-cell';
+    if (STATE.attendance[idx]) {
+      cell.classList.add('active');
+    }
     cell.innerHTML = `
       <span class="attendance-day-lbl">${day}</span>
       <div class="attendance-status-indicator"></div>
