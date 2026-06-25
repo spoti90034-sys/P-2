@@ -1813,6 +1813,10 @@ function authenticateUser(email, bypassWelcome = false) {
     localStorage.setItem('IRON_CLUB_USER_EMAIL', email);
   }
 
+  // Toggle authenticated layout
+  const appEl = document.getElementById('app');
+  if (appEl) appEl.classList.add('authenticated');
+
   // Update UI Elements
   document.getElementById('main-nav').style.display = 'flex';
   
@@ -1845,6 +1849,10 @@ async function handleSignOut() {
   if (supabaseClient) {
     await supabaseClient.auth.signOut();
   }
+
+  // Toggle authenticated layout
+  const appEl = document.getElementById('app');
+  if (appEl) appEl.classList.remove('authenticated');
 
   // Update Navigation display
   document.getElementById('main-nav').style.display = 'none';
@@ -3426,6 +3434,11 @@ function updateIntakeUI(type) {
 
     document.getElementById('water-sum-lbl').textContent = total.toFixed(2);
     document.getElementById('water-goal-lbl').textContent = STATE.water.goal.toFixed(2);
+
+    const nameInput = document.getElementById('water-entry-name');
+    if (nameInput) {
+      nameInput.value = 'Drink ' + (STATE.water.entries.length + 1);
+    }
 
     const banner = document.getElementById('water-banner');
     const avatarWrapper = document.getElementById('water-avatar-wrapper');
