@@ -2513,6 +2513,163 @@ function undoCompletion(dayName, itemName) {
   }
 }
 
+function handleExerciseDrop(data) {
+  const dayName = data.day;
+  if (!STATE.splits.completions[dayName]) {
+    STATE.splits.completions[dayName] = [];
+  }
+
+  const completeBox = document.getElementById('complete-box');
+  let success = false;
+
+  if (data.type === 'exercise') {
+    const exName = data.name;
+    if (!STATE.splits.completions[dayName].includes(exName)) {
+      STATE.splits.completions[dayName].push(exName);
+      success = true;
+    }
+  } else if (data.type === 'recovery') {
+    if (!STATE.splits.completions[dayName].includes('RECOVERY')) {
+      STATE.splits.completions[dayName].push('RECOVERY');
+      success = true;
+    }
+  }
+
+  if (success) {
+    if (completeBox) {
+      completeBox.style.transform = 'scale(1.15)';
+      completeBox.classList.add('drag-success');
+      
+      const mouth = document.getElementById('complete-trainer-mouth');
+      if (mouth) {
+        mouth.setAttribute('d', 'M71 70 Q80 82 89 70'); // Happy smile!
+      }
+      
+      const aura = completeBox.querySelector('.aura-spin');
+      if (aura) {
+        aura.style.stroke = 'var(--color-green)';
+        aura.style.strokeWidth = '3px';
+      }
+      
+      const boxText = completeBox.querySelector('.complete-box-text');
+      const boxSubtext = completeBox.querySelector('.complete-box-subtext');
+      
+      if (boxText) boxText.textContent = 'Great Work Buddy!';
+      if (boxSubtext) {
+        boxSubtext.textContent = 'Move Ahead!';
+        boxSubtext.style.color = 'var(--color-green)';
+        boxSubtext.style.textShadow = '0 0 8px rgba(0, 230, 115, 0.4)';
+      }
+      
+      setTimeout(() => {
+        if (completeBox) {
+          completeBox.style.transform = '';
+          completeBox.classList.remove('drag-success');
+        }
+        if (mouth) {
+          mouth.setAttribute('d', 'M75 73 Q80 78 85 73');
+        }
+        if (aura) {
+          aura.style.stroke = '';
+          aura.style.strokeWidth = '';
+        }
+        if (boxText) boxText.textContent = 'COMPLETE BOX';
+        if (boxSubtext) {
+          boxSubtext.textContent = 'Drag items here';
+          boxSubtext.style.color = '';
+          boxSubtext.style.textShadow = '';
+        }
+      }, 3000);
+    }
+  }
+
+  checkAndUpdateAttendance(dayName);
+  initWorkoutSplits();
+}
+
+function makeTouchDraggable(element, dragData) {
+  let clone = null;
+  let startX, startY;
+  let isMoving = false;
+
+  element.addEventListener('touchstart', (e) => {
+    if (element.getAttribute('draggable') === 'false') return;
+    const touch = e.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+    isMoving = false;
+  }, { passive: true });
+
+  element.addEventListener('touchmove', (e) => {
+    if (element.getAttribute('draggable') === 'false') return;
+
+    const touch = e.touches[0];
+    const dx = touch.clientX - startX;
+    const dy = touch.clientY - startY;
+
+    if (!isMoving && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+      isMoving = true;
+      clone = element.cloneNode(true);
+      clone.style.position = 'fixed';
+      clone.style.zIndex = '9999';
+      clone.style.pointerEvents = 'none';
+      clone.style.opacity = '0.8';
+      clone.style.width = element.offsetWidth + 'px';
+      clone.style.height = element.offsetHeight + 'px';
+      clone.style.boxShadow = '0 0 20px rgba(0, 242, 254, 0.5)';
+      document.body.appendChild(clone);
+      
+      element.style.opacity = '0.4';
+    }
+
+    if (isMoving && clone) {
+      if (e.cancelable) e.preventDefault();
+      clone.style.left = (touch.clientX - element.offsetWidth / 2) + 'px';
+      clone.style.top = (touch.clientY - element.offsetHeight / 2) + 'px';
+      
+      const elementAtPoint = document.elementFromPoint(touch.clientX, touch.clientY);
+      const completeBox = document.getElementById('complete-box');
+      if (completeBox) {
+        if (elementAtPoint && (elementAtPoint === completeBox || completeBox.contains(elementAtPoint))) {
+          completeBox.classList.add('drag-over');
+        } else {
+          completeBox.classList.remove('drag-over');
+        }
+      }
+    }
+  }, { passive: false });
+
+  element.addEventListener('touchend', (e) => {
+    if (element.getAttribute('draggable') === 'false') return;
+    element.style.opacity = '';
+    
+    if (isMoving && clone) {
+      const touch = e.changedTouches[0];
+      const elementAtPoint = document.elementFromPoint(touch.clientX, touch.clientY);
+      const completeBox = document.getElementById('complete-box');
+      
+      let droppedOnTarget = false;
+      if (completeBox && elementAtPoint && (elementAtPoint === completeBox || completeBox.contains(elementAtPoint))) {
+        droppedOnTarget = true;
+      }
+      
+      if (clone.parentNode) {
+        clone.parentNode.removeChild(clone);
+      }
+      clone = null;
+      
+      if (completeBox) {
+        completeBox.classList.remove('drag-over');
+      }
+
+      if (droppedOnTarget) {
+        handleExerciseDrop(dragData);
+      }
+    }
+    isMoving = false;
+  }, { passive: true });
+}
+
 function setupCompleteBox() {
   const completeBox = document.getElementById('complete-box');
   if (!completeBox) return;
@@ -2535,28 +2692,7 @@ function setupCompleteBox() {
       if (!rawData) return;
       const data = JSON.parse(rawData);
       
-      const dayName = data.day;
-      if (!STATE.splits.completions[dayName]) {
-        STATE.splits.completions[dayName] = [];
-      }
-
-      if (data.type === 'exercise') {
-        const exName = data.name;
-        if (!STATE.splits.completions[dayName].includes(exName)) {
-          STATE.splits.completions[dayName].push(exName);
-          completeBox.style.transform = 'scale(1.2)';
-          setTimeout(() => completeBox.style.transform = '', 200);
-        }
-      } else if (data.type === 'recovery') {
-        if (!STATE.splits.completions[dayName].includes('RECOVERY')) {
-          STATE.splits.completions[dayName].push('RECOVERY');
-          completeBox.style.transform = 'scale(1.2)';
-          setTimeout(() => completeBox.style.transform = '', 200);
-        }
-      }
-
-      checkAndUpdateAttendance(dayName);
-      initWorkoutSplits();
+      handleExerciseDrop(data);
     } catch (err) {
       console.error('Drop error:', err);
     }
@@ -2738,16 +2874,32 @@ function initWorkoutSplits() {
     `;
     
     activeHeader.querySelector('#btn-reset-program').addEventListener('click', () => {
-      if (confirm('Are you sure you want to reset the active 7-day program? All current completions will be cleared.')) {
-        STATE.splits.active = false;
-        STATE.splits.activeProgramId = null;
-        STATE.splits.startedAt = null;
-        STATE.splits.completions = {};
-        STATE.splits.viewDay = todayName;
-        STATE.attendance = [false, false, false, false, false, false, false];
-        initWorkoutSplits();
-        updateAnalyticsUI();
-        setTimeout(triggerComponentEntrance, 40);
+      const confirmModal = document.getElementById('confirm-modal');
+      const btnYes = document.getElementById('btn-confirm-yes');
+      const btnCancel = document.getElementById('btn-confirm-cancel');
+      
+      if (confirmModal && btnYes && btnCancel) {
+        confirmModal.style.display = 'flex';
+        
+        const cleanUp = () => {
+          confirmModal.style.display = 'none';
+          btnYes.replaceWith(btnYes.cloneNode(true));
+          btnCancel.replaceWith(btnCancel.cloneNode(true));
+        };
+        
+        document.getElementById('btn-confirm-cancel').addEventListener('click', cleanUp);
+        document.getElementById('btn-confirm-yes').addEventListener('click', () => {
+          STATE.splits.active = false;
+          STATE.splits.activeProgramId = null;
+          STATE.splits.startedAt = null;
+          STATE.splits.completions = {};
+          STATE.splits.viewDay = todayName;
+          STATE.attendance = [false, false, false, false, false, false, false];
+          initWorkoutSplits();
+          updateAnalyticsUI();
+          setTimeout(triggerComponentEntrance, 40);
+          cleanUp();
+        });
       }
     });
     container.appendChild(activeHeader);
@@ -2810,6 +2962,7 @@ function initWorkoutSplits() {
           cardEl.addEventListener('dragend', () => {
             cardEl.classList.remove('dragging');
           });
+          makeTouchDraggable(cardEl, { type: 'recovery', day: activeDayName });
         } else {
           bindLongPressUndo(cardEl, () => {
             undoCompletion(activeDayName, 'RECOVERY');
@@ -2879,6 +3032,7 @@ function initWorkoutSplits() {
               card.addEventListener('dragend', () => {
                 card.classList.remove('dragging');
               });
+              makeTouchDraggable(card, { type: 'exercise', name: ex.name, day: activeDayName });
             } else {
               bindLongPressUndo(card, () => {
                 undoCompletion(activeDayName, ex.name);
@@ -2937,6 +3091,7 @@ function initWorkoutSplits() {
               card.addEventListener('dragend', () => {
                 card.classList.remove('dragging');
               });
+              makeTouchDraggable(card, { type: 'exercise', name: 'CARDIO', day: activeDayName });
             } else {
               bindLongPressUndo(card, () => {
                 undoCompletion(activeDayName, 'CARDIO');

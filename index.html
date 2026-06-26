@@ -714,10 +714,49 @@
 
   <!-- Floating Complete Box Target for Drag and Drop -->
   <div class="complete-box" id="complete-box">
-    <div class="complete-box-border">
-      <svg viewBox="0 0 24 24" class="complete-box-icon"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+    <div class="complete-box-border" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem;">
+      <!-- Complete Box Trainer SVG -->
+      <svg id="complete-box-trainer-svg" class="complete-box-icon trainer-svg" viewBox="0 0 160 160" style="width: 70px; height: 70px; margin-bottom: 0.2rem;">
+        <!-- Glowing energy ring -->
+        <circle cx="80" cy="80" r="50" fill="none" stroke="rgba(0, 242, 254, 0.3)" stroke-width="2" stroke-dasharray="6,4" class="aura-spin" />
+        <!-- Flexed Torso -->
+        <path d="M60 100 Q80 85 100 100 L95 150 L65 150 Z" fill="#a0afb7" />
+        <!-- Left flexed arm -->
+        <path d="M60 115 Q30 95 40 80 Q55 70 62 95" stroke="#a0afb7" stroke-width="12" stroke-linecap="round" fill="none" />
+        <!-- Right flexed arm -->
+        <path d="M100 115 Q130 95 120 80 Q105 70 98 95" stroke="#a0afb7" stroke-width="12" stroke-linecap="round" fill="none" />
+        <circle cx="48" cy="80" r="8" fill="#a0afb7" />
+        <circle cx="112" cy="80" r="8" fill="#a0afb7" />
+        <!-- Head & Face -->
+        <rect x="73" y="80" width="14" height="15" fill="#a0afb7" />
+        <circle cx="80" cy="65" r="16" fill="#a0afb7" />
+        <!-- Glowing blue cyan eyes -->
+        <ellipse cx="74" cy="63" rx="2" ry="1.5" fill="var(--color-cyan)" class="eye-glow" />
+        <ellipse cx="86" cy="63" rx="2" ry="1.5" fill="var(--color-cyan)" class="eye-glow" />
+        <path d="M70 58 L77 61" stroke="#121212" stroke-width="2" stroke-linecap="round" />
+        <path d="M90 58 L83 61" stroke="#121212" stroke-width="2" stroke-linecap="round" />
+        <!-- Flexing smile -->
+        <path id="complete-trainer-mouth" d="M75 73 Q80 78 85 73" stroke="#121212" stroke-width="2.5" fill="none" stroke-linecap="round" />
+        <!-- Headband -->
+        <rect x="66" y="52" width="28" height="7" fill="#ffffff" rx="1.5" />
+        <rect x="77" y="52" width="6" height="7" fill="var(--color-cyan)" />
+      </svg>
       <div class="complete-box-text">COMPLETE BOX</div>
       <div class="complete-box-subtext">Drag items here</div>
+    </div>
+  </div>
+
+  <!-- Custom Confirm Modal -->
+  <div class="rest-modal-overlay" id="confirm-modal" style="display: none; align-items: center; justify-content: center; z-index: 1200;">
+    <div class="rest-modal-card" style="max-width: 400px; width: 90%; padding: 2rem;">
+      <div class="rest-modal-title" style="font-size: 1.3rem; color: var(--color-crimson); text-shadow: 0 0 10px rgba(255, 51, 102, 0.4); margin-bottom: 1rem;">RESET SPLIT LOOP?</div>
+      <p style="font-size: 0.9rem; color: #fff; margin-bottom: 1.5rem; line-height: 1.4;">
+        Are you sure you want to reset the active 7-day program? All current completions will be cleared.
+      </p>
+      <div style="display: flex; gap: 1rem;">
+        <button class="btn-vintage" id="btn-confirm-cancel" style="flex: 1; border-color: rgba(255,255,255,0.15); color: #fff;">Cancel</button>
+        <button class="btn-vintage btn-vintage-primary" id="btn-confirm-yes" style="flex: 1; background: linear-gradient(135deg, var(--color-crimson) 0%, #b3002d 100%); border-color: rgba(255, 51, 102, 0.4); box-shadow: var(--shadow-crimson-glow); color: #fff;">Reset</button>
+      </div>
     </div>
   </div>
 

@@ -3579,6 +3579,33 @@ body.dark-room-active .dark-room-overlay {
   }
 }
 
+/* ==========================================================================
+   11. MOBILE PERFORMANCE AND TOUCH OPTIMIZATIONS
+   ========================================================================== */
+.complete-box-icon.trainer-svg {
+  width: 70px !important;
+  height: 70px !important;
+}
+
+/* Snappy Touch clicks on mobile, removing 300ms delay */
+button, a, .nav-item, .drawer-nav-item, .exercise-card, .btn-vintage, .auth-tab-btn, .duration-wheel-item {
+  touch-action: manipulation;
+}
+
+/* Disable context menu & selection on draggable elements to enable smooth long press */
+.exercise-card, .recovery-drag-card {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* GPU hardware acceleration for overlays to prevent transition stutter and latency */
+.complete-box, .rest-modal-overlay, .mobile-menu-drawer, .drawer-backdrop {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
 
 
 
