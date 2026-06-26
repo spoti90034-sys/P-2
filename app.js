@@ -2947,29 +2947,6 @@ function initWorkoutSplits() {
         drawer.appendChild(previewContainer);
       });
     }
-  }ight:700;">${escapeHtml(ex.name)}</span>
-                            ${ex.desc ? `<span class="split-ex-desc" style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">👉 ${escapeHtml(ex.desc)}</span>` : ''}
-                          </div>
-                          <span class="split-ex-reps">${escapeHtml(ex.reps)}</span>
-                        </li>
-                      `).join('')}
-                    </ul>
-                  </div>
-                `).join('')}
-              </div>
-            `}
-          </div>
-        `;
-
-        card.querySelector('.split-header').addEventListener('click', () => {
-          card.classList.toggle('expanded');
-        });
-        previewContainer.appendChild(card);
-      });
-
-      drawer.appendChild(previewContainer);
-    });
-
   } else {
     const elapsed = Date.now() - STATE.splits.startedAt;
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
