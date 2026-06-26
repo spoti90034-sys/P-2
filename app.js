@@ -31,6 +31,7 @@ const STATE = {
     active: false,
     activeProgramId: null,
     startedAt: null,
+    onConfirmReset: null,
     completions: {}, // maps day names to array of completed exercise names / "RECOVERY"
     programExpanded: {
       arnold: false,
@@ -2497,7 +2498,10 @@ function bindLongPressUndo(element, callback) {
   };
   
   element.addEventListener('mousedown', startPress);
-  element.addEventListener('touchstart', startPress, { passive: true });
+  element.addEventListener('touchstart', (e) => {
+    if (e.cancelable) e.preventDefault();
+    startPress(e);
+  }, { passive: false });
   
   element.addEventListener('mouseup', cancelPress);
   element.addEventListener('mouseleave', cancelPress);
@@ -2592,82 +2596,120 @@ function makeTouchDraggable(element, dragData) {
   let startX, startY;
   let isMoving = false;
 
-  element.addEventListener('touchstart', (e) => {
-    if (element.getAttribute('draggable') === 'false') return;
-    const touch = e.touches[0];
-    startX = touch.clientX;
-    startY = touch.clientY;
-    isMoving = false;
-  }, { passive: true });
-
-  element.addEventListener('touchmove', (e) => {
-    if (element.getAttribute('draggable') === 'false') return;
-
-    const touch = e.touches[0];
-    const dx = touch.clientX - startX;
-    const dy = touch.clientY - startY;
-
-    if (!isMoving && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
-      isMoving = true;
-      clone = element.cloneNode(true);
-      clone.style.position = 'fixed';
-      clone.style.zIndex = '9999';
-      clone.style.pointerEvents = 'none';
-      clone.style.opacity = '0.8';
-      clone.style.width = element.offsetWidth + 'px';
-      clone.style.height = element.offsetHeight + 'px';
-      clone.style.boxShadow = '0 0 20px rgba(0, 242, 254, 0.5)';
-      document.body.appendChild(clone);
+  const endDrag = (e) => {
+    try {
+      if (element.getAttribute('draggable') === 'false') return;
       
-      element.style.opacity = '0.4';
-    }
+      if (isMoving && clone) {
+        let droppedOnTarget = false;
+        
+        let clientX = 0;
+        let clientY = 0;
+        if (e && e.changedTouches && e.changedTouches.length > 0) {
+          clientX = e.changedTouches[0].clientX;
+          clientY = e.changedTouches[0].clientY;
+        } else if (e) {
+          clientX = e.clientX || 0;
+          clientY = e.clientY || 0;
+        }
 
-    if (isMoving && clone) {
-      if (e.cancelable) e.preventDefault();
-      clone.style.left = (touch.clientX - element.offsetWidth / 2) + 'px';
-      clone.style.top = (touch.clientY - element.offsetHeight / 2) + 'px';
-      
-      const elementAtPoint = document.elementFromPoint(touch.clientX, touch.clientY);
-      const completeBox = document.getElementById('complete-box');
-      if (completeBox) {
-        if (elementAtPoint && (elementAtPoint === completeBox || completeBox.contains(elementAtPoint))) {
-          completeBox.classList.add('drag-over');
-        } else {
-          completeBox.classList.remove('drag-over');
+        if (clientX > 0 || clientY > 0) {
+          const elementAtPoint = document.elementFromPoint(clientX, clientY);
+          const completeBox = document.getElementById('complete-box');
+          if (completeBox && elementAtPoint && (elementAtPoint === completeBox || completeBox.contains(elementAtPoint))) {
+            droppedOnTarget = true;
+          }
+        }
+
+        if (droppedOnTarget && e.type === 'touchend') {
+          handleExerciseDrop(dragData);
         }
       }
-    }
-  }, { passive: false });
-
-  element.addEventListener('touchend', (e) => {
-    if (element.getAttribute('draggable') === 'false') return;
-    element.style.opacity = '';
-    
-    if (isMoving && clone) {
-      const touch = e.changedTouches[0];
-      const elementAtPoint = document.elementFromPoint(touch.clientX, touch.clientY);
-      const completeBox = document.getElementById('complete-box');
-      
-      let droppedOnTarget = false;
-      if (completeBox && elementAtPoint && (elementAtPoint === completeBox || completeBox.contains(elementAtPoint))) {
-        droppedOnTarget = true;
-      }
-      
-      if (clone.parentNode) {
-        clone.parentNode.removeChild(clone);
+    } catch (err) {
+      console.error('Error in endDrag:', err);
+    } finally {
+      try {
+        if (clone && clone.parentNode) {
+          clone.parentNode.removeChild(clone);
+        }
+      } catch (err) {
+        console.error('Error removing clone:', err);
       }
       clone = null;
-      
+      element.style.opacity = '';
+      const completeBox = document.getElementById('complete-box');
       if (completeBox) {
         completeBox.classList.remove('drag-over');
       }
-
-      if (droppedOnTarget) {
-        handleExerciseDrop(dragData);
-      }
+      isMoving = false;
     }
-    isMoving = false;
+  };
+
+  element.addEventListener('touchstart', (e) => {
+    try {
+      if (element.getAttribute('draggable') === 'false') return;
+      const touch = e.touches[0];
+      startX = touch.clientX;
+      startY = touch.clientY;
+      isMoving = false;
+    } catch (err) {
+      console.error('Error in touchstart:', err);
+    }
   }, { passive: true });
+
+  element.addEventListener('touchmove', (e) => {
+    try {
+      if (element.getAttribute('draggable') === 'false') return;
+
+      const touch = e.touches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+
+      if (!isMoving && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+        isMoving = true;
+        clone = element.cloneNode(true);
+        clone.style.position = 'fixed';
+        clone.style.zIndex = '9999';
+        clone.style.pointerEvents = 'none';
+        clone.style.opacity = '0.8';
+        clone.style.width = element.offsetWidth + 'px';
+        clone.style.height = element.offsetHeight + 'px';
+        clone.style.boxShadow = '0 0 20px rgba(0, 242, 254, 0.5)';
+        document.body.appendChild(clone);
+        
+        element.style.opacity = '0.4';
+      }
+
+      if (isMoving && clone) {
+        if (e.cancelable) e.preventDefault();
+        clone.style.left = (touch.clientX - element.offsetWidth / 2) + 'px';
+        clone.style.top = (touch.clientY - element.offsetHeight / 2) + 'px';
+        
+        const elementAtPoint = document.elementFromPoint(touch.clientX, touch.clientY);
+        const completeBox = document.getElementById('complete-box');
+        if (completeBox) {
+          if (elementAtPoint && (elementAtPoint === completeBox || completeBox.contains(elementAtPoint))) {
+            completeBox.classList.add('drag-over');
+          } else {
+            completeBox.classList.remove('drag-over');
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error in touchmove:', err);
+      if (clone && clone.parentNode) {
+        try {
+          clone.parentNode.removeChild(clone);
+        } catch (rErr) {}
+      }
+      clone = null;
+      element.style.opacity = '';
+      isMoving = false;
+    }
+  }, { passive: false });
+
+  element.addEventListener('touchend', endDrag, { passive: true });
+  element.addEventListener('touchcancel', endDrag, { passive: true });
 }
 
 function setupCompleteBox() {
@@ -2743,11 +2785,11 @@ function initWorkoutSplits() {
       programWrapper.className = `program-wrapper ${isExpanded ? 'expanded' : ''} entrance-animate`;
       programWrapper.innerHTML = `
         <div class="program-header-bar">
-          <div style="display:flex; flex-direction:column; gap:0.2rem;">
+          <div class="program-title-block">
             <span style="font-family:var(--font-display); font-size:1.4rem; font-weight:800; color:var(--color-cyan);">${escapeHtml(program.name)}</span>
             <span style="font-size:0.75rem; color:var(--text-secondary);">${escapeHtml(program.subtitle)}</span>
           </div>
-          <div style="display:flex; align-items:center; gap:1rem;">
+          <div class="program-actions-block">
             ${isCustom ? `
               <button class="btn-vintage btn-edit-program" id="btn-edit-program-${programId}" style="padding: 0.8rem 1.5rem; border-radius: 8px; border-color: rgba(127, 0, 255, 0.4); color: var(--color-cyan); font-weight: 700;">EDIT</button>
             ` : ''}
@@ -2875,20 +2917,8 @@ function initWorkoutSplits() {
     
     activeHeader.querySelector('#btn-reset-program').addEventListener('click', () => {
       const confirmModal = document.getElementById('confirm-modal');
-      const btnYes = document.getElementById('btn-confirm-yes');
-      const btnCancel = document.getElementById('btn-confirm-cancel');
-      
-      if (confirmModal && btnYes && btnCancel) {
-        confirmModal.style.display = 'flex';
-        
-        const cleanUp = () => {
-          confirmModal.style.display = 'none';
-          btnYes.replaceWith(btnYes.cloneNode(true));
-          btnCancel.replaceWith(btnCancel.cloneNode(true));
-        };
-        
-        document.getElementById('btn-confirm-cancel').addEventListener('click', cleanUp);
-        document.getElementById('btn-confirm-yes').addEventListener('click', () => {
+      if (confirmModal) {
+        STATE.splits.onConfirmReset = () => {
           STATE.splits.active = false;
           STATE.splits.activeProgramId = null;
           STATE.splits.startedAt = null;
@@ -2898,8 +2928,8 @@ function initWorkoutSplits() {
           initWorkoutSplits();
           updateAnalyticsUI();
           setTimeout(triggerComponentEntrance, 40);
-          cleanUp();
-        });
+        };
+        confirmModal.style.display = 'flex';
       }
     });
     container.appendChild(activeHeader);
@@ -3712,6 +3742,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedEmail) {
       authenticateUser(savedEmail, true);
     }
+  }
+
+  // Custom Confirm Modal Bindings
+  const confirmModal = document.getElementById('confirm-modal');
+  const btnYes = document.getElementById('btn-confirm-yes');
+  const btnCancel = document.getElementById('btn-confirm-cancel');
+
+  if (confirmModal && btnYes && btnCancel) {
+    btnYes.addEventListener('click', () => {
+      if (STATE.splits.onConfirmReset) {
+        STATE.splits.onConfirmReset();
+        STATE.splits.onConfirmReset = null;
+      }
+      confirmModal.style.display = 'none';
+    });
+
+    btnCancel.addEventListener('click', () => {
+      STATE.splits.onConfirmReset = null;
+      confirmModal.style.display = 'none';
+    });
   }
 
   // Navigation Bindings
