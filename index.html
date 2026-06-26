@@ -242,75 +242,16 @@
           <button class="btn-vintage btn-custom-split-trigger entrance-animate" id="btn-add-custom-split-trigger" style="background: linear-gradient(135deg, var(--color-violet) 0%, #5d00cc 100%); border-color: rgba(127, 0, 255, 0.4); box-shadow: var(--shadow-violet-glow); padding: 0.8rem 1.5rem; border-radius: 8px; font-weight: 700; color: #fff; cursor: pointer; transition: all var(--transition-fast);">+ Custom Split</button>
         </div>
 
+        <!-- Splits Subsection Tabs -->
+        <div class="splits-tab-bar" id="splits-tab-bar" style="display: flex; gap: 1.5rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 0.8rem; margin-bottom: 2.2rem; width: 100%;">
+          <button class="splits-tab-btn active" id="btn-tab-default-splits">Default Splits</button>
+          <button class="splits-tab-btn" id="btn-tab-custom-splits">Custom Splits</button>
+        </div>
+
         <div class="split-cards-container" id="splits-container">
           <!-- Splits loaded dynamically by JavaScript -->
         </div>
 
-        <!-- Rest Day 3D pop up Modal -->
-        <div class="rest-modal-overlay" id="rest-modal">
-          <div class="rest-modal-card">
-            <div class="rest-modal-title">REST</div>
-            <div class="rest-modal-subtitle">System Recovery in Progress</div>
-            <p style="font-size: 0.9rem; color: #fff; margin-bottom: 1rem;">
-              Muscles are built during recovery, not just lifting. Prioritize deep sleep, cellular hydration, and gentle mobility.
-            </p>
-            <div class="rest-modal-quote">
-              "No pump today. Feed the muscles, rest the spine, and clear the mind."
-            </div>
-            <button class="btn-vintage btn-vintage-primary" id="btn-close-rest-modal" style="width: 100%;">Acknowledge & Recovery</button>
-          </div>
-        </div>
-
-        <!-- Add Custom Split Modal -->
-        <div class="rest-modal-overlay" id="custom-split-modal" style="display: none; align-items: center; justify-content: center; z-index: 1100;">
-          <div class="rest-modal-card" style="max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; text-align: left; padding: 2rem; border-color: rgba(127, 0, 255, 0.3); box-shadow: 0 0 30px rgba(127, 0, 255, 0.2); position: relative;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px dashed rgba(255, 255, 255, 0.1); padding-bottom: 0.8rem;">
-              <div class="rest-modal-title" style="font-size: 1.5rem; text-shadow: 0 0 10px rgba(127,0,255,0.5); letter-spacing: 0.05em; color: var(--color-cyan); margin: 0;">CUSTOM SPLIT</div>
-              <button class="btn-vintage" id="btn-close-custom-split-modal" style="padding: 0.4rem 0.8rem; border-radius: 4px; border-color: rgba(255, 51, 102, 0.3); color: var(--color-crimson); font-weight: 700;">✖ CLOSE</button>
-            </div>
-            
-            
-
-
-            <form id="form-custom-split" onsubmit="return false;" style="display: flex; flex-direction: column; gap: 1.2rem;">
-              <div class="form-group">
-                <label for="custom-split-name" style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700;">Program Name</label>
-                <input type="text" id="custom-split-name" class="input-vintage" placeholder="e.g. MY HYBRID POWER BUILD" required style="width: 100%;">
-              </div>
-              <div class="form-group">
-                <label for="custom-split-subtitle" style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700;">Subtitle / Description</label>
-                <input type="text" id="custom-split-subtitle" class="input-vintage" placeholder="e.g. Focus on chest & lat hypertrophy with power days" required style="width: 100%;">
-              </div>
-              
-              <!-- Duration of split selector -->
-              <div class="form-group">
-                <label style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; margin-bottom: 0.2rem;">Duration of split</label>
-                <div class="duration-wheel" id="custom-split-duration-wheel">
-                  <div class="duration-wheel-item" data-value="1">1</div>
-                  <div class="duration-wheel-item" data-value="2">2</div>
-                  <div class="duration-wheel-item" data-value="3">3</div>
-                  <div class="duration-wheel-item" data-value="4">4</div>
-                  <div class="duration-wheel-item" data-value="5">5</div>
-                  <div class="duration-wheel-item" data-value="6">6</div>
-                  <div class="duration-wheel-item active" data-value="7">7</div>
-                </div>
-              </div>
-
-              <!-- Collapsible Accordion Panels for Days -->
-              <div style="border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 1rem;">
-                <label style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700;">Configure Routines</label>
-                <div class="day-accordion-wrapper" id="custom-split-accordion-container">
-                  <!-- Generated dynamically in JS to keep HTML footprint clean -->
-                </div>
-              </div>
-
-              <!-- Save Button -->
-              <div style="display: flex; gap: 0.8rem; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 1rem;">
-                <button type="button" class="btn-vintage btn-vintage-primary" id="btn-save-custom-split" style="flex: 1; padding: 0.8rem; background: linear-gradient(135deg, var(--color-violet) 0%, #5d00cc 100%); border-color: rgba(127, 0, 255, 0.5); box-shadow: var(--shadow-violet-glow); font-weight: 700; border-radius: 6px; cursor: pointer; color: #fff;">SAVE CUSTOM SPLIT</button>
-              </div>
-            </form>
-          </div>
-        </div>
       </section>
 
       <!-- ==========================================================================
@@ -769,6 +710,69 @@
   <!-- Global Toast Notification Container -->
   <div class="custom-split-toast" id="custom-split-toast">
      <span>✓</span> <span id="custom-split-toast-msg">Notification Message</span>
+  </div>
+
+  <!-- Rest Day 3D pop up Modal -->
+  <div class="rest-modal-overlay" id="rest-modal">
+    <div class="rest-modal-card">
+      <div class="rest-modal-title">REST</div>
+      <div class="rest-modal-subtitle">System Recovery in Progress</div>
+      <p style="font-size: 0.9rem; color: #fff; margin-bottom: 1rem;">
+        Muscles are built during recovery, not just lifting. Prioritize deep sleep, cellular hydration, and gentle mobility.
+      </p>
+      <div class="rest-modal-quote">
+        "No pump today. Feed the muscles, rest the spine, and clear the mind."
+      </div>
+      <button class="btn-vintage btn-vintage-primary" id="btn-close-rest-modal" style="width: 100%;">Acknowledge & Recovery</button>
+    </div>
+  </div>
+
+  <!-- Add Custom Split Modal -->
+  <div class="rest-modal-overlay" id="custom-split-modal" style="display: none; align-items: center; justify-content: center; z-index: 1100;">
+    <div class="rest-modal-card" style="max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; text-align: left; padding: 2rem; border-color: rgba(127, 0, 255, 0.3); box-shadow: 0 0 30px rgba(127, 0, 255, 0.2); position: relative;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px dashed rgba(255, 255, 255, 0.1); padding-bottom: 0.8rem;">
+        <div class="rest-modal-title" style="font-size: 1.5rem; text-shadow: 0 0 10px rgba(127,0,255,0.5); letter-spacing: 0.05em; color: var(--color-cyan); margin: 0;">CUSTOM SPLIT</div>
+        <button class="btn-vintage" id="btn-close-custom-split-modal" style="padding: 0.4rem 0.8rem; border-radius: 4px; border-color: rgba(255, 51, 102, 0.3); color: var(--color-crimson); font-weight: 700;">✖ CLOSE</button>
+      </div>
+      
+      <form id="form-custom-split" onsubmit="return false;" style="display: flex; flex-direction: column; gap: 1.2rem;">
+        <div class="form-group">
+          <label for="custom-split-name" style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700;">Program Name</label>
+          <input type="text" id="custom-split-name" class="input-vintage" placeholder="e.g. MY HYBRID POWER BUILD" required style="width: 100%;">
+        </div>
+        <div class="form-group">
+          <label for="custom-split-subtitle" style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700;">Subtitle / Description</label>
+          <input type="text" id="custom-split-subtitle" class="input-vintage" placeholder="e.g. Focus on chest & lat hypertrophy with power days" required style="width: 100%;">
+        </div>
+        
+        <!-- Duration of split selector -->
+        <div class="form-group">
+          <label style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; margin-bottom: 0.2rem;">Duration of split</label>
+          <div class="duration-wheel" id="custom-split-duration-wheel">
+            <div class="duration-wheel-item" data-value="1">1</div>
+            <div class="duration-wheel-item" data-value="2">2</div>
+            <div class="duration-wheel-item" data-value="3">3</div>
+            <div class="duration-wheel-item" data-value="4">4</div>
+            <div class="duration-wheel-item" data-value="5">5</div>
+            <div class="duration-wheel-item" data-value="6">6</div>
+            <div class="duration-wheel-item" data-value="7">7</div>
+          </div>
+        </div>
+
+        <!-- Collapsible Days Editor -->
+        <div class="form-group">
+          <label style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; margin-bottom: 0.5rem;">Configure Workout Days</label>
+          <div class="custom-split-accordion-container" id="custom-split-accordion-container">
+            <!-- Generated by javascript -->
+          </div>
+        </div>
+
+        <!-- Save Button -->
+        <div style="display: flex; gap: 0.8rem; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 1rem;">
+          <button type="button" class="btn-vintage btn-vintage-primary" id="btn-save-custom-split" style="flex: 1; padding: 0.8rem; background: linear-gradient(135deg, var(--color-violet) 0%, #5d00cc 100%); border-color: rgba(127, 0, 255, 0.5); box-shadow: var(--shadow-violet-glow); font-weight: 700; border-radius: 6px; cursor: pointer; color: #fff;">SAVE CUSTOM SPLIT</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- Supabase Client SDK CDN -->

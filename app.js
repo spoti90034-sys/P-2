@@ -32,6 +32,7 @@ const STATE = {
     activeProgramId: null,
     startedAt: null,
     onConfirmReset: null,
+    activeSubTab: 'default',
     completions: {}, // maps day names to array of completed exercise names / "RECOVERY"
     programExpanded: {
       arnold: false,
@@ -2771,7 +2772,10 @@ function initWorkoutSplits() {
     }
   }
 
-  // Toggle Complete Box
+  // Toggle Complete Box and Tabs/Trigger Buttons
+  const triggerBtn = document.getElementById('btn-add-custom-split-trigger');
+  const splitsTabBar = document.getElementById('splits-tab-bar');
+
   if (completeBox) {
     if (STATE.splits.active && STATE.activeSection === 'workout-splits') {
       completeBox.classList.add('active');
@@ -2780,96 +2784,170 @@ function initWorkoutSplits() {
     }
   }
 
+  if (splitsTabBar) {
+    splitsTabBar.style.display = STATE.splits.active ? 'none' : 'flex';
+  }
+  if (triggerBtn) {
+    triggerBtn.style.display = (!STATE.splits.active && STATE.splits.activeSubTab === 'custom') ? 'block' : 'none';
+  }
+
   if (!STATE.splits.active) {
-    Object.keys(PROGRAMS_DB).forEach(programId => {
+    const programIds = Object.keys(PROGRAMS_DB).filter(programId => {
       const program = PROGRAMS_DB[programId];
-      const isExpanded = STATE.splits.programExpanded[programId] || false;
-
       const isCustom = program.isCustomSplit || programId.startsWith('custom_split_');
-      const programWrapper = document.createElement('div');
-      programWrapper.className = `program-wrapper ${isExpanded ? 'expanded' : ''} entrance-animate`;
-      programWrapper.innerHTML = `
-        <div class="program-header-bar">
-          <div class="program-title-block">
-            <span style="font-family:var(--font-display); font-size:1.4rem; font-weight:800; color:var(--color-cyan);">${escapeHtml(program.name)}</span>
-            <span style="font-size:0.75rem; color:var(--text-secondary);">${escapeHtml(program.subtitle)}</span>
-          </div>
-          <div class="program-actions-block">
-            ${isCustom ? `
-              <button class="btn-vintage btn-edit-program" id="btn-edit-program-${programId}" style="padding: 0.8rem 1.5rem; border-radius: 8px; border-color: rgba(127, 0, 255, 0.4); color: var(--color-cyan); font-weight: 700;">EDIT</button>
-            ` : ''}
-            <button class="btn-vintage btn-program-toggle" id="btn-program-toggle-${programId}" style="padding: 0.8rem 1.2rem; border-radius: 8px;" aria-label="Toggle program preview">
-              <span class="toggle-arrow">▼</span>
-            </button>
-            <button class="btn-vintage btn-vintage-primary" id="btn-start-program-${programId}" style="padding: 0.8rem 2.2rem; font-size: 0.9rem; border-radius: 8px; box-shadow: var(--shadow-cyan-glow);">START LOOP</button>
-          </div>
+      return STATE.splits.activeSubTab === 'custom' ? isCustom : !isCustom;
+    });
+
+    if (STATE.splits.activeSubTab === 'custom' && programIds.length === 0) {
+      container.innerHTML = `
+        <div class="custom-splits-empty-state entrance-animate" style="width: 100%;">
+          <svg viewBox="0 0 160 160" style="width: 100px; height: 100px; margin-bottom: 1.5rem; filter: drop-shadow(0 0 15px rgba(0, 242, 254, 0.3));">
+            <!-- Aura Ring -->
+            <circle cx="80" cy="80" r="70" stroke="var(--color-cyan)" stroke-width="1.5" fill="none" stroke-dasharray="8 6" style="transform-origin: 80px 80px; animation: spin 20s linear infinite; opacity: 0.4;" />
+            <!-- Head -->
+            <circle cx="80" cy="65" r="20" fill="var(--bg-secondary)" stroke="var(--color-cyan)" stroke-width="2" />
+            <!-- Body / Shoulders -->
+            <path d="M45 110 Q80 80 115 110 L105 140 L55 140 Z" fill="var(--bg-secondary)" stroke="var(--color-cyan)" stroke-width="2" />
+            <!-- Eyes -->
+            <ellipse cx="74" cy="63" rx="2" ry="1.5" fill="var(--color-cyan)" />
+            <ellipse cx="86" cy="63" rx="2" ry="1.5" fill="var(--color-cyan)" />
+            <!-- Happy flex smile -->
+            <path d="M73 72 Q80 80 87 72" stroke="var(--color-cyan)" stroke-width="2.5" fill="none" stroke-linecap="round" />
+            <!-- Headband -->
+            <rect x="66" y="52" width="28" height="7" fill="#ffffff" rx="1.5" />
+            <rect x="77" y="52" width="6" height="7" fill="var(--color-cyan)" />
+          </svg>
+          <div style="font-family: var(--font-display); font-size: 1.5rem; font-weight: 900; color: var(--color-cyan); text-shadow: 0 0 10px rgba(0,242,254,0.3); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">START YOUR OWN JOURNEY</div>
+          <div style="font-size: 0.85rem; color: var(--text-secondary); max-width: 320px; line-height: 1.4;">Create a custom training program tailored to your goals. Tap the button above to begin.</div>
         </div>
-        <div class="program-drawer" id="program-drawer-${programId}"></div>
       `;
-      container.appendChild(programWrapper);
+    } else {
+      programIds.forEach(programId => {
+        const program = PROGRAMS_DB[programId];
+        const isExpanded = STATE.splits.programExpanded[programId] || false;
+        const isCustom = program.isCustomSplit || programId.startsWith('custom_split_');
+        
+        const programWrapper = document.createElement('div');
+        programWrapper.className = `program-wrapper ${isExpanded ? 'expanded' : ''} entrance-animate`;
+        programWrapper.style.position = 'relative';
 
-      if (isCustom) {
-        const editBtn = programWrapper.querySelector(`#btn-edit-program-${programId}`);
-        editBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          editCustomSplit(programId);
-        });
-      }
-
-      const toggleBtn = programWrapper.querySelector(`#btn-program-toggle-${programId}`);
-      toggleBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        STATE.splits.programExpanded[programId] = !STATE.splits.programExpanded[programId];
-        if (STATE.splits.programExpanded[programId]) {
-          programWrapper.classList.add('expanded');
-        } else {
-          programWrapper.classList.remove('expanded');
-        }
-      });
-
-      const startBtn = programWrapper.querySelector(`#btn-start-program-${programId}`);
-      startBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        STATE.splits.active = true;
-        STATE.splits.activeProgramId = programId;
-        STATE.splits.startedAt = Date.now();
-        STATE.splits.completions = {};
-        STATE.splits.viewDay = todayName;
-        STATE.attendance = [false, false, false, false, false, false, false];
-        initWorkoutSplits();
-        updateAnalyticsUI();
-        setTimeout(triggerComponentEntrance, 40);
-      });
-
-      // Render Preview inside drawer
-      const drawer = programWrapper.querySelector(`#program-drawer-${programId}`);
-      const previewContainer = document.createElement('div');
-      previewContainer.className = 'split-cards-container';
-      
-      program.splits.forEach(split => {
-        const card = document.createElement('div');
-        card.className = `split-card entrance-animate ${split.isRest ? 'rest-day' : ''}`;
-        card.innerHTML = `
-          <div class="split-header">
-            <div class="split-title">
-              <div class="split-day">${split.day}</div>
-              <div class="split-info">${escapeHtml(split.title)}</div>
+        programWrapper.innerHTML = `
+          ${isCustom ? `
+            <button class="btn-delete-split" id="btn-delete-program-${programId}" title="Delete custom split">🗑</button>
+          ` : ''}
+          <div class="program-header-bar" style="${isCustom ? 'padding-right: 3.5rem !important;' : ''}">
+            <div class="program-title-block">
+              <span style="font-family:var(--font-display); font-size:1.4rem; font-weight:800; color:var(--color-cyan);">${escapeHtml(program.name)}</span>
+              <span style="font-size:0.75rem; color:var(--text-secondary);">${escapeHtml(program.subtitle)}</span>
             </div>
-            <div class="split-chevron">${split.isRest ? '❖' : '▼'}</div>
+            <div class="program-actions-block">
+              ${isCustom ? `
+                <button class="btn-vintage btn-edit-program" id="btn-edit-program-${programId}" style="padding: 0.8rem 1.5rem; border-radius: 8px; border-color: rgba(127, 0, 255, 0.4); color: var(--color-cyan); font-weight: 700;">EDIT</button>
+              ` : ''}
+              <button class="btn-vintage btn-program-toggle" id="btn-program-toggle-${programId}" style="padding: 0.8rem 1.2rem; border-radius: 8px;" aria-label="Toggle program preview">
+                <span class="toggle-arrow">▼</span>
+              </button>
+              <button class="btn-vintage btn-vintage-primary" id="btn-start-program-${programId}" style="padding: 0.8rem 2.2rem; font-size: 0.9rem; border-radius: 8px; box-shadow: var(--shadow-cyan-glow);">START LOOP</button>
+            </div>
           </div>
-          <div class="split-content" style="padding: 1.5rem;">
-            ${split.isRest ? `
-              <div style="font-size:0.8rem; color:var(--text-secondary); font-style:italic;">Recovery day. Focus on rest and stretching.</div>
-            ` : `
-              <div class="split-sections">
-                ${split.sections.map(sec => `
-                  <div class="split-section-box" style="padding:1rem;">
-                    <div class="split-section-title" style="font-size:1rem; margin-bottom:0.6rem;">${escapeHtml(sec.name)}</div>
-                    <ul class="split-exercise-list" style="gap:0.4rem;">
-                      ${sec.exercises.map(ex => `
-                        <li class="split-exercise-item" style="font-size:0.8rem;">
-                          <div style="display:flex; flex-direction:column;">
-                            <span class="split-ex-name" style="color:var(--text-secondary); font-weight:700;">${escapeHtml(ex.name)}</span>
+          <div class="program-drawer" id="program-drawer-${programId}"></div>
+        `;
+        container.appendChild(programWrapper);
+
+        if (isCustom) {
+          const editBtn = programWrapper.querySelector(`#btn-edit-program-${programId}`);
+          if (editBtn) {
+            editBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              editCustomSplit(programId);
+            });
+          }
+          const deleteBtn = programWrapper.querySelector(`#btn-delete-program-${programId}`);
+          if (deleteBtn) {
+            deleteBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              deleteCustomSplit(programId);
+            });
+          }
+        }
+
+        const toggleBtn = programWrapper.querySelector(`#btn-program-toggle-${programId}`);
+        toggleBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          STATE.splits.programExpanded[programId] = !STATE.splits.programExpanded[programId];
+          if (STATE.splits.programExpanded[programId]) {
+            programWrapper.classList.add('expanded');
+          } else {
+            programWrapper.classList.remove('expanded');
+          }
+        });
+
+        const startBtn = programWrapper.querySelector(`#btn-start-program-${programId}`);
+        startBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          STATE.splits.active = true;
+          STATE.splits.activeProgramId = programId;
+          STATE.splits.startedAt = Date.now();
+          STATE.splits.completions = {};
+          STATE.splits.viewDay = todayName;
+          STATE.attendance = [false, false, false, false, false, false, false];
+          initWorkoutSplits();
+          updateAnalyticsUI();
+          setTimeout(triggerComponentEntrance, 40);
+        });
+
+        // Render Preview inside drawer
+        const drawer = programWrapper.querySelector(`#program-drawer-${programId}`);
+        const previewContainer = document.createElement('div');
+        previewContainer.className = 'split-cards-container';
+        
+        program.splits.forEach(split => {
+          const card = document.createElement('div');
+          card.className = `split-card entrance-animate ${split.isRest ? 'rest-day' : ''}`;
+          card.innerHTML = `
+            <div class="split-header">
+              <div class="split-title">
+                <div class="split-day">${split.day}</div>
+                <div class="split-info">${escapeHtml(split.title)}</div>
+              </div>
+              <div class="split-chevron">${split.isRest ? '❖' : '▼'}</div>
+            </div>
+            <div class="split-content" style="padding: 1.5rem;">
+              ${split.isRest ? `
+                <div style="font-size:0.8rem; color:var(--text-secondary); font-style:italic;">Recovery day. Focus on rest and stretching.</div>
+              ` : `
+                <div class="split-sections">
+                  ${split.sections.map(sec => `
+                    <div class="split-section-box" style="padding:1rem;">
+                      <div class="split-section-title" style="font-size:1rem; margin-bottom:0.6rem;">${escapeHtml(sec.name)}</div>
+                      <ul class="split-exercise-list" style="gap:0.4rem;">
+                        ${sec.exercises.map(ex => `
+                          <li class="split-exercise-item" style="font-size:0.8rem;">
+                            <div style="display:flex; flex-direction:column;">
+                              <span class="split-ex-name" style="color:var(--text-secondary); font-weight:700;">${escapeHtml(ex.name)}</span>
+                              ${ex.desc ? `<span class="split-ex-desc" style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">👉 ${escapeHtml(ex.desc)}</span>` : ''}
+                            </div>
+                            <span class="split-ex-reps">${escapeHtml(ex.reps)}</span>
+                          </li>
+                        `).join('')}
+                      </ul>
+                    </div>
+                  `).join('')}
+                </div>
+              `}
+            </div>
+          `;
+
+          card.querySelector('.split-header').addEventListener('click', () => {
+            card.classList.toggle('expanded');
+          });
+          previewContainer.appendChild(card);
+        });
+
+        drawer.appendChild(previewContainer);
+      });
+    }
+  }ight:700;">${escapeHtml(ex.name)}</span>
                             ${ex.desc ? `<span class="split-ex-desc" style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">👉 ${escapeHtml(ex.desc)}</span>` : ''}
                           </div>
                           <span class="split-ex-reps">${escapeHtml(ex.reps)}</span>
@@ -3778,6 +3856,26 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCancel.addEventListener('click', () => {
       STATE.splits.onConfirmReset = null;
       confirmModal.style.display = 'none';
+    });
+  }
+
+  // Splits Subsections Tabs Bindings
+  const tabDefault = document.getElementById('btn-tab-default-splits');
+  const tabCustom = document.getElementById('btn-tab-custom-splits');
+  
+  if (tabDefault && tabCustom) {
+    tabDefault.addEventListener('click', () => {
+      STATE.splits.activeSubTab = 'default';
+      tabDefault.classList.add('active');
+      tabCustom.classList.remove('active');
+      initWorkoutSplits();
+    });
+    
+    tabCustom.addEventListener('click', () => {
+      STATE.splits.activeSubTab = 'custom';
+      tabCustom.classList.add('active');
+      tabDefault.classList.remove('active');
+      initWorkoutSplits();
     });
   }
 
@@ -4934,6 +5032,65 @@ async function loadCustomSplits(email) {
     }
   } catch (e) {
     console.error('Failed to load custom splits from localStorage:', e);
+  }
+}
+
+async function deleteCustomSplit(programId) {
+  const confirmModal = document.getElementById('confirm-modal');
+  if (confirmModal) {
+    const modalTitle = confirmModal.querySelector('.rest-modal-title');
+    const modalText = confirmModal.querySelector('p');
+    const btnYes = document.getElementById('btn-confirm-yes');
+    
+    if (modalTitle) modalTitle.textContent = 'DELETE CUSTOM SPLIT?';
+    if (modalText) modalText.textContent = 'Are you sure you want to delete this custom split? This action cannot be undone.';
+    if (btnYes) btnYes.textContent = 'Delete';
+    
+    STATE.splits.onConfirmReset = async () => {
+      delete PROGRAMS_DB[programId];
+      
+      if (supabaseClient) {
+        try {
+          const { error } = await supabaseClient
+            .from('custom_splits')
+            .delete()
+            .eq('id', programId);
+          if (error) throw error;
+        } catch (err) {
+          console.warn('Failed to delete custom split from Supabase:', err);
+        }
+      }
+      
+      try {
+        const storedCustom = localStorage.getItem('IRON_CLUB_CUSTOM_SPLITS');
+        if (storedCustom) {
+          const parsed = JSON.parse(storedCustom);
+          delete parsed[programId];
+          localStorage.setItem('IRON_CLUB_CUSTOM_SPLITS', JSON.stringify(parsed));
+        }
+      } catch (e) {
+        console.error('Failed to delete custom split from localStorage:', e);
+      }
+      
+      if (STATE.splits.activeProgramId === programId) {
+        STATE.splits.active = false;
+        STATE.splits.activeProgramId = null;
+        STATE.splits.startedAt = null;
+        STATE.splits.completions = {};
+        STATE.attendance = [false, false, false, false, false, false, false];
+      }
+      
+      initWorkoutSplits();
+      updateAnalyticsUI();
+      
+      setTimeout(() => {
+        if (modalTitle) modalTitle.textContent = 'RESET SPLIT LOOP?';
+        if (modalText) modalText.textContent = 'Are you sure you want to reset the active 7-day program? All current completions will be cleared.';
+        if (btnYes) btnYes.textContent = 'Reset';
+      }, 500);
+    };
+    
+    confirmModal.style.display = 'flex';
   }
 }
 
