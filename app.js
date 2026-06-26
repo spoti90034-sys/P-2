@@ -50,6 +50,11 @@ const STATE = {
   }
 };
 
+let touchActive = false;
+window.addEventListener('touchstart', () => { touchActive = true; }, { passive: true });
+window.addEventListener('touchend', () => { touchActive = false; }, { passive: true });
+window.addEventListener('touchcancel', () => { touchActive = false; }, { passive: true });
+
 // HTML escaping helper to prevent XSS (cross-site scripting) injection
 function escapeHtml(str) {
   if (typeof str !== 'string') return str || '';
@@ -2986,6 +2991,10 @@ function initWorkoutSplits() {
         
         if (!isDone) {
           cardEl.addEventListener('dragstart', (e) => {
+            if (touchActive) {
+              e.preventDefault();
+              return;
+            }
             cardEl.classList.add('dragging');
             e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'recovery', day: activeDayName }));
           });
@@ -3056,6 +3065,10 @@ function initWorkoutSplits() {
             
             if (!isDone) {
               card.addEventListener('dragstart', (e) => {
+                if (touchActive) {
+                  e.preventDefault();
+                  return;
+                }
                 card.classList.add('dragging');
                 e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'exercise', name: ex.name, day: activeDayName }));
               });
@@ -3115,6 +3128,10 @@ function initWorkoutSplits() {
               });
               
               card.addEventListener('dragstart', (e) => {
+                if (touchActive) {
+                  e.preventDefault();
+                  return;
+                }
                 card.classList.add('dragging');
                 e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'exercise', name: 'CARDIO', day: activeDayName }));
               });
