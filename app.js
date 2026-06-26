@@ -3033,6 +3033,11 @@ function initWorkoutSplits() {
     const activeProgramId = STATE.splits.activeProgramId;
     const program = PROGRAMS_DB[activeProgramId];
 
+    if (!program) {
+      container.innerHTML = `<div style="text-align:center; padding: 2rem; color: var(--text-secondary); font-family: var(--font-display); letter-spacing: 0.05em; font-weight: 700; text-transform: uppercase;">Loading Active Workout Program...</div>`;
+      return;
+    }
+
     const activeHeader = document.createElement('div');
     activeHeader.style.display = 'flex';
     activeHeader.style.justifyContent = 'space-between';
