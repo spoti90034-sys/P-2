@@ -3237,10 +3237,6 @@ function initCardioModule() {
   document.getElementById('btn-timer-start').addEventListener('click', startCardioTimer);
   document.getElementById('btn-timer-pause').addEventListener('click', pauseCardioTimer);
   document.getElementById('btn-timer-reset').addEventListener('click', resetCardioTimer);
-  document.getElementById('btn-timer-fastforward').addEventListener('click', () => {
-    STATE.cardio.timerSeconds = Math.max(0, (STATE.cardio.timerTargetMinutes * 60) - 5);
-    updateTimerFace();
-  });
 
   // Target minute adjust
   document.getElementById('cardio-target-input').addEventListener('input', (e) => {
