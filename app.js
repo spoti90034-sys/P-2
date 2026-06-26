@@ -3148,9 +3148,10 @@ function initWorkoutSplits() {
     
     if (split) {
       const splitBox = document.createElement('div');
+      const completedList = STATE.splits.completions[activeDayName] || [];
       
       if (split.isRest) {
-        const isDone = (STATE.splits.completions[activeDayName] || []).includes('RECOVERY');
+        const isDone = completedList.includes('RECOVERY');
         
         splitBox.innerHTML = `
           <div class="recovery-drag-card entrance-animate ${isDone ? 'completed' : ''}" id="recovery-card" draggable="${!isDone}">
@@ -3187,8 +3188,6 @@ function initWorkoutSplits() {
         }
         
       } else {
-        const completedList = STATE.splits.completions[activeDayName] || [];
-        
         splitBox.innerHTML = `
           <div class="ppl-day-block" style="background:var(--bg-card); border:var(--border-glass); border-radius:12px; padding:2rem; box-shadow:var(--shadow-glass);">
             <div style="font-family:var(--font-display); font-size:1.3rem; color:var(--color-gold); margin-bottom:1.5rem; font-weight:800; border-bottom:1px dashed rgba(255,255,255,0.06); padding-bottom:0.8rem;">
