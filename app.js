@@ -2655,7 +2655,7 @@ function makeTouchDraggable(element, dragData) {
     } catch (err) {
       console.error('Error in touchstart:', err);
     }
-  }, { passive: true });
+  }, { passive: false });
 
   element.addEventListener('touchmove', (e) => {
     try {
