@@ -2433,8 +2433,88 @@ function openMuscleDrilldown(muscleKey) {
 /* ==========================================================================
    5. SECTION 2: WORKOUT SPLITS
    ========================================================================== */
+function saveSplitsProgress() {
+  try {
+    const data = {
+      splits: {
+        active: STATE.splits.active,
+        activeProgramId: STATE.splits.activeProgramId,
+        startedAt: STATE.splits.startedAt,
+        completions: STATE.splits.completions,
+        viewDay: STATE.splits.viewDay
+      },
+      attendance: STATE.attendance
+    };
+    localStorage.setItem('IRON_CLUB_SPLITS_PROGRESS', JSON.stringify(data));
+  } catch (e) {
+    console.error('Failed to save splits progress:', e);
+  }
+}
+window.saveSplitsProgress = saveSplitsProgress;
+
+function loadSplitsProgress() {
+  try {
+    const saved = localStorage.getItem('IRON_CLUB_SPLITS_PROGRESS');
+    if (saved) {
+      const data = JSON.parse(saved);
+      if (data.splits) {
+        STATE.splits.active = data.splits.active || false;
+        STATE.splits.activeProgramId = data.splits.activeProgramId || null;
+        STATE.splits.startedAt = data.splits.startedAt || null;
+        STATE.splits.completions = data.splits.completions || {};
+        STATE.splits.viewDay = data.splits.viewDay || null;
+      }
+      if (data.attendance) {
+        STATE.attendance = data.attendance;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load splits progress:', e);
+  }
+}
+window.loadSplitsProgress = loadSplitsProgress;
+
+function isDayFullyCompleted(dayName) {
+  const activeProgramId = STATE.splits.activeProgramId;
+  if (!activeProgramId) return false;
+  const program = PROGRAMS_DB[activeProgramId];
+  if (!program) return false;
+  const split = program.splits.find(s => s.day === dayName);
+  if (!split) return false;
+
+  const dayCompletions = STATE.splits.completions[dayName] || [];
+  if (split.isRest) {
+    return dayCompletions.includes('RECOVERY');
+  } else {
+    const totalEx = getDayTotalExercises(dayName);
+    return totalEx > 0 && dayCompletions.length >= totalEx;
+  }
+}
+window.isDayFullyCompleted = isDayFullyCompleted;
+
+function openConfirmation(title, text, yesText, cancelText, onYes, onCancel) {
+  const confirmModal = document.getElementById('confirm-modal');
+  if (!confirmModal) return;
+
+  const titleEl = confirmModal.querySelector('.rest-modal-title');
+  const textEl = confirmModal.querySelector('p');
+  const btnYes = document.getElementById('btn-confirm-yes');
+  const btnCancel = document.getElementById('btn-confirm-cancel');
+
+  if (titleEl) titleEl.textContent = title;
+  if (textEl) textEl.textContent = text;
+  if (btnYes) btnYes.textContent = yesText;
+  if (btnCancel) btnCancel.textContent = cancelText;
+
+  STATE.splits.onConfirmReset = onYes;
+  STATE.splits.onConfirmCancel = onCancel || null;
+  confirmModal.style.display = 'flex';
+}
+window.openConfirmation = openConfirmation;
+
 function selectSplitsViewDay(day) {
   STATE.splits.viewDay = day;
+  saveSplitsProgress();
   initWorkoutSplits();
 }
 window.selectSplitsViewDay = selectSplitsViewDay;
@@ -2464,17 +2544,14 @@ function checkAndUpdateAttendance(dayName) {
   const split = program.splits.find(s => s.day === dayName);
   if (!split) return;
 
-  let isDone = false;
-  const dayCompletions = STATE.splits.completions[dayName] || [];
+  const isFull = isDayFullyCompleted(dayName);
 
-  if (split.isRest) {
-    isDone = dayCompletions.includes('RECOVERY');
-  } else {
-    const totalEx = getDayTotalExercises(dayName);
-    isDone = totalEx > 0 && dayCompletions.length >= totalEx;
+  // If exercises are incomplete, mark the day incomplete till the all exercises are complete
+  if (!isFull) {
+    STATE.attendance[idx] = false;
   }
 
-  STATE.attendance[idx] = isDone;
+  saveSplitsProgress();
   updateAnalyticsUI();
 }
 
@@ -2891,6 +2968,7 @@ function initWorkoutSplits() {
           STATE.splits.completions = {};
           STATE.splits.viewDay = todayName;
           STATE.attendance = [false, false, false, false, false, false, false];
+          saveSplitsProgress();
           initWorkoutSplits();
           updateAnalyticsUI();
           setTimeout(triggerComponentEntrance, 40);
@@ -2976,21 +3054,24 @@ function initWorkoutSplits() {
     `;
     
     activeHeader.querySelector('#btn-reset-program').addEventListener('click', () => {
-      const confirmModal = document.getElementById('confirm-modal');
-      if (confirmModal) {
-        STATE.splits.onConfirmReset = () => {
+      openConfirmation(
+        'RESET SPLIT LOOP?',
+        'Are you sure you want to reset the active 7-day program? All current completions will be cleared.',
+        'Reset',
+        'Cancel',
+        () => {
           STATE.splits.active = false;
           STATE.splits.activeProgramId = null;
           STATE.splits.startedAt = null;
           STATE.splits.completions = {};
           STATE.splits.viewDay = todayName;
           STATE.attendance = [false, false, false, false, false, false, false];
+          saveSplitsProgress();
           initWorkoutSplits();
           updateAnalyticsUI();
           setTimeout(triggerComponentEntrance, 40);
-        };
-        confirmModal.style.display = 'flex';
-      }
+        }
+      );
     });
     container.appendChild(activeHeader);
 
@@ -3040,6 +3121,7 @@ function initWorkoutSplits() {
               ${isDone ? '✓ Completed (Hold to Undo)' : 'DRAG TO COMPLETE BOX TO FINALIZE'}
             </div>
           </div>
+          <div id="day-actions-container" style="margin-top: 1.5rem; background: var(--bg-card); border: var(--border-glass); border-radius: 12px; padding: 1.5rem; box-shadow: var(--shadow-glass);"></div>
         `;
         
         const cardEl = splitBox.querySelector('#recovery-card');
@@ -3088,6 +3170,7 @@ function initWorkoutSplits() {
                 </div>
               ` : ''}
             </div>
+            <div id="day-actions-container" style="margin-top: 2rem; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 1.5rem;"></div>
           </div>
         `;
         
@@ -3200,6 +3283,104 @@ function initWorkoutSplits() {
               });
             }
             cardioLinkDiv.appendChild(card);
+          }
+        }
+      }
+      
+      // Populate Day Actions Container
+      const actionsContainer = splitBox.querySelector('#day-actions-container');
+      if (actionsContainer) {
+        const isCompleted = STATE.attendance[ATTENDANCE_MAP[activeDayName]];
+        const isAllExercisesDone = isDayFullyCompleted(activeDayName);
+        
+        if (isCompleted) {
+          actionsContainer.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.6rem; text-align: center;">
+              <div style="font-family: var(--font-display); font-size: 1rem; font-weight: 800; color: var(--color-green); text-shadow: 0 0 10px rgba(0, 230, 115, 0.3);">
+                ✓ STATUS: DAY COMPLETED
+              </div>
+              <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0;">
+                Excellent work! Progress saved. Hold any exercise card to undo completion.
+              </p>
+            </div>
+          `;
+        } else if (isAllExercisesDone) {
+          actionsContainer.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.8rem; text-align: center;">
+              <div style="font-family: var(--font-display); font-size: 1rem; font-weight: 800; color: var(--color-gold); text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);">
+                ★ READY TO FINALIZE
+              </div>
+              <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0;">
+                All exercises completed for today! Tap the button below to confirm.
+              </p>
+              <button class="btn-vintage btn-vintage-primary" id="btn-finalize-day" style="padding: 0.8rem 2rem; font-size: 0.9rem; border-radius: 8px; box-shadow: var(--shadow-cyan-glow); color: #fff; width: 100%; max-width: 280px; font-weight: 700; cursor: pointer;">
+                DONE & SAVE PROGRESS
+              </button>
+            </div>
+          `;
+          
+          const finalizeBtn = actionsContainer.querySelector('#btn-finalize-day');
+          if (finalizeBtn) {
+            finalizeBtn.addEventListener('click', () => {
+              const idx = ATTENDANCE_MAP[activeDayName];
+              if (idx !== undefined) {
+                STATE.attendance[idx] = true;
+              }
+              saveSplitsProgress();
+              updateAnalyticsUI();
+              
+              openConfirmation(
+                'REPEAT SPLIT LOOP?',
+                'Congratulations! You completed the workout for today. Would you like to repeat the workout loop (reset all days and start over)?',
+                'Yes, Repeat Loop',
+                'No, Keep Progress',
+                () => {
+                  STATE.splits.completions = {};
+                  STATE.attendance = [false, false, false, false, false, false, false];
+                  STATE.splits.startedAt = Date.now();
+                  saveSplitsProgress();
+                  initWorkoutSplits();
+                  updateAnalyticsUI();
+                  showToast('Workout loop restarted!');
+                  setTimeout(triggerComponentEntrance, 40);
+                },
+                () => {
+                  initWorkoutSplits();
+                }
+              );
+              
+              initWorkoutSplits();
+            });
+          }
+        } else {
+          const totalEx = split.isRest ? 1 : getDayTotalExercises(activeDayName);
+          const count = completedList.length;
+          
+          actionsContainer.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.8rem; text-align: center;">
+              <div style="font-family: var(--font-display); font-size: 0.9rem; font-weight: 800; color: var(--color-cyan); opacity: 0.8;">
+                PROGRESS: INCOMPLETE (${count} of ${totalEx} done)
+              </div>
+              <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0;">
+                Complete all exercises to finalize the day. You can save your partial progress now.
+              </p>
+              <button class="btn-vintage" id="btn-save-later" style="padding: 0.8rem 2rem; font-size: 0.9rem; border-radius: 8px; border-color: rgba(0, 242, 254, 0.3); color: var(--color-cyan); width: 100%; max-width: 280px; cursor: pointer; font-weight: 700;">
+                DO IT LATER & SAVE
+              </button>
+            </div>
+          `;
+          
+          const saveLaterBtn = actionsContainer.querySelector('#btn-save-later');
+          if (saveLaterBtn) {
+            saveLaterBtn.addEventListener('click', () => {
+              const idx = ATTENDANCE_MAP[activeDayName];
+              if (idx !== undefined) {
+                STATE.attendance[idx] = false;
+              }
+              saveSplitsProgress();
+              showToast('Progress saved successfully! Do the rest later.');
+              initWorkoutSplits();
+            });
           }
         }
       }
@@ -3823,10 +4004,15 @@ document.addEventListener('DOMContentLoaded', () => {
         STATE.splits.onConfirmReset();
         STATE.splits.onConfirmReset = null;
       }
+      STATE.splits.onConfirmCancel = null;
       confirmModal.style.display = 'none';
     });
 
     btnCancel.addEventListener('click', () => {
+      if (STATE.splits.onConfirmCancel) {
+        STATE.splits.onConfirmCancel();
+        STATE.splits.onConfirmCancel = null;
+      }
       STATE.splits.onConfirmReset = null;
       confirmModal.style.display = 'none';
     });
@@ -4007,6 +4193,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Init sections
   initFitnessGuide();
+  loadSplitsProgress();
   initWorkoutSplits();
   initCardioModule();
   initAnalytics();
@@ -5009,17 +5196,12 @@ async function loadCustomSplits(email) {
 }
 
 async function deleteCustomSplit(programId) {
-  const confirmModal = document.getElementById('confirm-modal');
-  if (confirmModal) {
-    const modalTitle = confirmModal.querySelector('.rest-modal-title');
-    const modalText = confirmModal.querySelector('p');
-    const btnYes = document.getElementById('btn-confirm-yes');
-    
-    if (modalTitle) modalTitle.textContent = 'DELETE CUSTOM SPLIT?';
-    if (modalText) modalText.textContent = 'Are you sure you want to delete this custom split? This action cannot be undone.';
-    if (btnYes) btnYes.textContent = 'Delete';
-    
-    STATE.splits.onConfirmReset = async () => {
+  openConfirmation(
+    'DELETE CUSTOM SPLIT?',
+    'Are you sure you want to delete this custom split? This action cannot be undone.',
+    'Delete',
+    'Cancel',
+    async () => {
       delete PROGRAMS_DB[programId];
       
       if (supabaseClient) {
@@ -5051,19 +5233,12 @@ async function deleteCustomSplit(programId) {
         STATE.splits.startedAt = null;
         STATE.splits.completions = {};
         STATE.attendance = [false, false, false, false, false, false, false];
+        saveSplitsProgress();
       }
       
       initWorkoutSplits();
       updateAnalyticsUI();
-      
-      setTimeout(() => {
-        if (modalTitle) modalTitle.textContent = 'RESET SPLIT LOOP?';
-        if (modalText) modalText.textContent = 'Are you sure you want to reset the active 7-day program? All current completions will be cleared.';
-        if (btnYes) btnYes.textContent = 'Reset';
-      }, 500);
-    };
-    
-    confirmModal.style.display = 'flex';
-  }
+    }
+  );
 }
 
