@@ -1,0 +1,6 @@
+{
+  "appId": "com.ironclub.app",
+  "appName": "Iron Club",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}

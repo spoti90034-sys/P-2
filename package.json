@@ -6,11 +6,16 @@
   "scripts": {
     "start": "serve -l 3000",
     "dev": "serve -l 3000",
-    "setup-db": "node setup_db.js"
+    "setup-db": "node setup_db.js",
+    "build-mobile": "node build_mobile.js",
+    "cap:open-android": "cap open android"
   },
   "dependencies": {
-    "serve": "^14.2.1",
-    "pg": "^8.11.3"
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "pg": "^8.11.3",
+    "serve": "^14.2.1"
   },
   "author": "Antigravity Gym Dev",
   "license": "ISC"
