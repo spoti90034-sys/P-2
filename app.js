@@ -1,3 +1,39 @@
+window.addEventListener('error', (event) => {
+  const errDiv = document.createElement('div');
+  errDiv.style.position = 'fixed';
+  errDiv.style.top = '0';
+  errDiv.style.left = '0';
+  errDiv.style.width = '100%';
+  errDiv.style.background = 'rgba(255, 0, 50, 0.95)';
+  errDiv.style.color = 'white';
+  errDiv.style.zIndex = '99999';
+  errDiv.style.padding = '15px';
+  errDiv.style.fontSize = '12px';
+  errDiv.style.fontFamily = 'monospace';
+  errDiv.style.wordBreak = 'break-all';
+  errDiv.style.boxShadow = '0 5px 20px rgba(0,0,0,0.5)';
+  errDiv.innerHTML = `<strong>Runtime Error:</strong> ${event.message} <br> <strong>Source:</strong> ${event.filename}:${event.lineno}:${event.colno} <br> <strong>Stack:</strong> ${event.error ? event.error.stack : 'N/A'}`;
+  document.body.appendChild(errDiv);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  const errDiv = document.createElement('div');
+  errDiv.style.position = 'fixed';
+  errDiv.style.top = '100px';
+  errDiv.style.left = '0';
+  errDiv.style.width = '100%';
+  errDiv.style.background = 'rgba(255, 127, 0, 0.95)';
+  errDiv.style.color = 'white';
+  errDiv.style.zIndex = '99999';
+  errDiv.style.padding = '15px';
+  errDiv.style.fontSize = '12px';
+  errDiv.style.fontFamily = 'monospace';
+  errDiv.style.wordBreak = 'break-all';
+  errDiv.style.boxShadow = '0 5px 20px rgba(0,0,0,0.5)';
+  errDiv.innerHTML = `<strong>Unhandled Rejection:</strong> ${event.reason}`;
+  document.body.appendChild(errDiv);
+});
+
 /* ==========================================================================
    1. CORE APPLICATION STATE
    ========================================================================== */
