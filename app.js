@@ -3702,6 +3702,68 @@ function updateGamificationUI() {
 /* ==========================================================================
    7. SECTION 4: ANALYTICS & ATTENDANCE LEDGER
    ========================================================================== */
+let currentAttendanceVal = -1;
+
+function animateAttendanceNumber(newVal) {
+  const container = document.getElementById('analytics-attendance-count');
+  if (!container) return;
+
+  let wrapper = container.querySelector('.attendance-num-wrapper');
+  if (!wrapper) {
+    container.innerHTML = `<span class="attendance-num-wrapper"><span class="attendance-num-digit">${newVal}</span></span>/7`;
+    currentAttendanceVal = newVal;
+    return;
+  }
+
+  if (newVal === currentAttendanceVal) return;
+
+  const oldVal = currentAttendanceVal;
+  currentAttendanceVal = newVal;
+
+  // Create rolling container
+  const scrollDiv = document.createElement('div');
+  scrollDiv.className = 'attendance-num-scroll';
+
+  const oldDigit = document.createElement('span');
+  oldDigit.className = 'attendance-num-digit';
+  oldDigit.textContent = oldVal;
+
+  const newDigit = document.createElement('span');
+  newDigit.className = 'attendance-num-digit';
+  newDigit.textContent = newVal;
+
+  if (newVal > oldVal) {
+    // Scroll up (new digit enters from bottom)
+    scrollDiv.appendChild(oldDigit);
+    scrollDiv.appendChild(newDigit);
+    scrollDiv.style.transform = 'translateY(0)';
+    wrapper.innerHTML = '';
+    wrapper.appendChild(scrollDiv);
+
+    // Force reflow
+    scrollDiv.offsetHeight;
+
+    scrollDiv.style.transform = 'translateY(-50%)';
+  } else {
+    // Scroll down (new digit enters from top)
+    scrollDiv.appendChild(newDigit);
+    scrollDiv.appendChild(oldDigit);
+    scrollDiv.style.transform = 'translateY(-50%)';
+    wrapper.innerHTML = '';
+    wrapper.appendChild(scrollDiv);
+
+    // Force reflow
+    scrollDiv.offsetHeight;
+
+    scrollDiv.style.transform = 'translateY(0)';
+  }
+
+  // After animation finishes, clean up to keep DOM clean
+  setTimeout(() => {
+    wrapper.innerHTML = `<span class="attendance-num-digit">${newVal}</span>`;
+  }, 360);
+}
+
 let attendanceFireAnimationId = null;
 
 function triggerAttendanceBlueFire() {
@@ -3878,7 +3940,7 @@ function updateAnalyticsUI() {
   // Attendance count
   let attendedCount = 0;
   STATE.attendance.forEach(att => { if (att) attendedCount++; });
-  document.getElementById('analytics-attendance-count').textContent = `${attendedCount}/7`;
+  animateAttendanceNumber(attendedCount);
 
   // Weekly & All Time logs lists
   const weeklyList = document.getElementById('weekly-logs-list');
