@@ -5293,47 +5293,85 @@ async function deleteCustomSplit(programId) {
 const CinematicIntro = {
   active: false,
   canvas: null,
-  ctx: null,
-  animationFrameId: null,
-  flames: [],
-  embers: [],
-  shockwaves: [],
-  lightnings: [],
+  container: null,
+  renderer: null,
+  scene: null,
+  camera: null,
+  glowTexture: null,
+
+  // Particle systems
+  vortexPoints: null,
+  vortexData: [],
+  vortexCount: 3500,
+
+  auraPoints: null,
+  auraData: [],
+  auraCount: 3000,
+
+  lightningLines: [],
+  
+  // Animation states
   phase: 'converge', // 'converge', 'tornado', 'explode', 'settle'
   phaseTimer: 0,
-  width: 0,
-  height: 0,
   shakeIntensity: 0,
   flashAlpha: 0,
+  animationFrameId: null,
 
   start() {
-    const container = document.getElementById('cinematic-intro-container');
-    if (!container) return;
+    this.container = document.getElementById('cinematic-intro-container');
+    if (!this.container) return;
 
     if (!window.IS_WEBSITE) {
-      container.style.display = 'none';
-      container.remove();
+      this.container.style.display = 'none';
+      this.container.remove();
       return;
     }
 
-    container.style.display = 'flex';
+    if (typeof THREE === 'undefined') {
+      console.warn('Three.js failed to load. Skipping intro.');
+      this.terminate();
+      return;
+    }
+
+    this.container.style.display = 'flex';
     this.canvas = document.getElementById('intro-canvas');
     if (!this.canvas) return;
 
-    this.ctx = this.canvas.getContext('2d');
     this.active = true;
     this.phase = 'converge';
     this.phaseTimer = Date.now();
-    this.flames = [];
-    this.embers = [];
-    this.shockwaves = [];
-    this.lightnings = [];
+    this.lightningLines = [];
     this.shakeIntensity = 0;
     this.flashAlpha = 0;
 
-    this.resize();
-    window.addEventListener('resize', this.handleResize);
+    // Create fullscreen flash element overlay if it doesn't exist
+    let flashDiv = document.getElementById('intro-flash-overlay');
+    if (!flashDiv) {
+      flashDiv = document.createElement('div');
+      flashDiv.id = 'intro-flash-overlay';
+      flashDiv.style.position = 'absolute';
+      flashDiv.style.top = '0';
+      flashDiv.style.left = '0';
+      flashDiv.style.width = '100%';
+      flashDiv.style.height = '100%';
+      flashDiv.style.backgroundColor = 'rgba(235, 250, 255, 0)';
+      flashDiv.style.pointerEvents = 'none';
+      flashDiv.style.zIndex = '5';
+      flashDiv.style.transition = 'opacity 0.05s ease';
+      this.container.appendChild(flashDiv);
+    }
+    this.flashOverlay = flashDiv;
 
+    try {
+      this.initWebGL();
+    } catch (e) {
+      console.error('WebGL Initialization failed:', e);
+      this.terminate();
+      return;
+    }
+
+    window.addEventListener('resize', this.handleResize);
+    
     const skipBtn = document.getElementById('skip-intro-btn');
     if (skipBtn) {
       skipBtn.addEventListener('click', () => this.terminate());
@@ -5349,62 +5387,218 @@ const CinematicIntro = {
 
   handleResize: null,
 
+  createGlowTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    
+    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    grad.addColorStop(0.2, 'rgba(255, 255, 255, 0.8)');
+    grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.25)');
+    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 64, 64);
+    
+    return new THREE.CanvasTexture(canvas);
+  },
+
+  initWebGL() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    // 1. Scene setup
+    this.scene = new THREE.Scene();
+    this.scene.fog = new THREE.FogExp2(0x000000, 0.015);
+
+    // 2. Camera setup
+    this.camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
+    this.camera.position.set(0, 5, 50);
+
+    // 3. Renderer setup
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: this.canvas,
+      antialias: true,
+      alpha: true,
+      powerPreference: 'high-performance'
+    });
+    this.renderer.setSize(width, height);
+    const dpr = Math.min(window.devicePixelRatio, 2); // Cap at 2 for performance on 4K monitors
+    this.renderer.setPixelRatio(dpr);
+
+    this.glowTexture = this.createGlowTexture();
+
+    // 4. Vortex Particles (Blue plasma swirling vortex)
+    const vortexGeo = new THREE.BufferGeometry();
+    const vortexPositions = new Float32Array(this.vortexCount * 3);
+    const vortexColors = new Float32Array(this.vortexCount * 3);
+    this.vortexData = [];
+
+    for (let i = 0; i < this.vortexCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radiusStart = 35 + Math.random() * 40;
+      const radiusTarget = 3 + Math.random() * 8;
+      const height = (Math.random() - 0.5) * 15;
+      
+      const x = Math.cos(angle) * radiusStart;
+      const z = Math.sin(angle) * radiusStart;
+      const y = height;
+
+      vortexPositions[i * 3] = x;
+      vortexPositions[i * 3 + 1] = y;
+      vortexPositions[i * 3 + 2] = z;
+
+      // 65% electric cyan, 35% deep cosmic blue
+      if (Math.random() < 0.65) {
+        vortexColors[i * 3] = 0.0;     // R
+        vortexColors[i * 3 + 1] = 0.95; // G
+        vortexColors[i * 3 + 2] = 1.0;  // B
+      } else {
+        vortexColors[i * 3] = 0.15;
+        vortexColors[i * 3 + 1] = 0.45;
+        vortexColors[i * 3 + 2] = 1.0;
+      }
+
+      this.vortexData.push({
+        angle,
+        radiusStart,
+        radiusTarget,
+        height,
+        speed: 1.0 + Math.random() * 2.0,
+        vx: 0,
+        vy: 0,
+        vz: 0
+      });
+    }
+
+    vortexGeo.setAttribute('position', new THREE.BufferAttribute(vortexPositions, 3));
+    vortexGeo.setAttribute('color', new THREE.BufferAttribute(vortexColors, 3));
+
+    const vortexMat = new THREE.PointsMaterial({
+      size: 0.9,
+      map: this.glowTexture,
+      vertexColors: true,
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      depthWrite: false
+    });
+
+    this.vortexPoints = new THREE.Points(vortexGeo, vortexMat);
+    this.scene.add(this.vortexPoints);
+
+    // 5. Aura Particles (Yellowish-Red solar flame column)
+    const auraGeo = new THREE.BufferGeometry();
+    const auraPositions = new Float32Array(this.auraCount * 3);
+    const auraColors = new Float32Array(this.auraCount * 3);
+    this.auraData = [];
+
+    for (let i = 0; i < this.auraCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.random() * 5.5;
+      const yVal = -20 + Math.random() * 40;
+
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+
+      auraPositions[i * 3] = x;
+      auraPositions[i * 3 + 1] = yVal;
+      auraPositions[i * 3 + 2] = z;
+
+      // 50% gold, 50% crimson red
+      if (Math.random() < 0.5) {
+        auraColors[i * 3] = 1.0;     // R
+        auraColors[i * 3 + 1] = 0.70; // G
+        auraColors[i * 3 + 2] = 0.0;  // B
+      } else {
+        auraColors[i * 3] = 0.95;
+        auraColors[i * 3 + 1] = 0.15;
+        auraColors[i * 3 + 2] = 0.0;
+      }
+
+      this.auraData.push({
+        angle,
+        radius,
+        yVal,
+        speed: 1.5 + Math.random() * 2.0,
+        wobbleSpeed: 3 + Math.random() * 5,
+        vx: 0,
+        vy: 0,
+        vz: 0
+      });
+    }
+
+    auraGeo.setAttribute('position', new THREE.BufferAttribute(auraPositions, 3));
+    auraGeo.setAttribute('color', new THREE.BufferAttribute(auraColors, 3));
+
+    const auraMat = new THREE.PointsMaterial({
+      size: 1.3,
+      map: this.glowTexture,
+      vertexColors: true,
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      depthWrite: false
+    });
+
+    this.auraPoints = new THREE.Points(auraGeo, auraMat);
+    this.scene.add(this.auraPoints);
+  },
+
   resize() {
-    const dpr = window.devicePixelRatio || 1;
-    this.width = window.innerWidth;
-    this.height = window.innerHeight;
-    this.canvas.width = this.width * dpr;
-    this.canvas.height = this.height * dpr;
-    this.ctx.resetTransform();
-    this.ctx.scale(dpr, dpr);
+    if (!this.active || !this.renderer || !this.camera) return;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(width, height);
   },
 
-  spawnFlame(x, y, vx, vy, colorType) {
-    const size = 20 + Math.random() * 30; // volumetric glowing size
-    const decay = 0.015 + Math.random() * 0.015;
-    this.flames.push({
-      x, y, vx, vy,
-      size,
-      alpha: 1.0,
-      colorType,
-      life: 1.0,
-      decay,
-      wobbleSpeed: 0.04 + Math.random() * 0.06,
-      wobbleVal: Math.random() * 100
+  triggerLightning() {
+    const startX = (Math.random() - 0.5) * 80;
+    const startY = 50;
+    const startZ = (Math.random() - 0.5) * 80;
+
+    const endX = (Math.random() - 0.5) * 4;
+    const endY = (Math.random() - 0.5) * 10;
+    const endZ = (Math.random() - 0.5) * 4;
+
+    const points = [];
+    const segments = 8;
+    let currX = startX;
+    let currY = startY;
+    let currZ = startZ;
+    points.push(new THREE.Vector3(currX, currY, currZ));
+
+    for (let i = 1; i < segments; i++) {
+      const t = i / segments;
+      const tx = startX + (endX - startX) * t;
+      const ty = startY + (endY - startY) * t;
+      const tz = startZ + (endZ - startZ) * t;
+
+      currX = tx + (Math.random() - 0.5) * 5;
+      currY = ty + (Math.random() - 0.5) * 5;
+      currZ = tz + (Math.random() - 0.5) * 5;
+      points.push(new THREE.Vector3(currX, currY, currZ));
+    }
+    points.push(new THREE.Vector3(endX, endY, endZ));
+
+    const geom = new THREE.BufferGeometry().setFromPoints(points);
+    const mat = new THREE.LineBasicMaterial({
+      color: 0x00f2fe,
+      transparent: true,
+      opacity: 1.0,
+      linewidth: 2
     });
-  },
 
-  spawnEmber(x, y, vx, vy, colorType) {
-    const size = 1.2 + Math.random() * 2.2;
-    const decay = 0.004 + Math.random() * 0.008;
-    this.embers.push({
-      x, y, vx, vy,
-      size,
-      colorType,
+    const line = new THREE.Line(geom, mat);
+    this.scene.add(line);
+
+    this.lightningLines.push({
+      mesh: line,
       alpha: 1.0,
-      life: 1.0,
-      decay
-    });
-  },
-
-  triggerLightningStrike(startX, startY, endX, endY) {
-    this.lightnings.push({
-      startX, startY, endX, endY,
-      alpha: 1.0,
-      decay: 0.08 + Math.random() * 0.08,
-      displace: 55
-    });
-  },
-
-  spawnShockwave(isFinal = false, force = 20) {
-    this.shockwaves.push({
-      x: this.width / 2,
-      y: this.height / 2,
-      radius: 0,
-      maxRadius: Math.max(this.width, this.height) * (isFinal ? 1.3 : 0.8),
-      speed: isFinal ? 22 : 12,
-      force: force,
-      alpha: 1
+      decay: 0.1 + Math.random() * 0.12
     });
   },
 
@@ -5413,311 +5607,297 @@ const CinematicIntro = {
 
     const now = Date.now();
     const elapsed = (now - this.phaseTimer) / 1000;
-    const centerX = this.width / 2;
-    const centerY = this.height / 2;
 
-    // Timeline phases
+    // Camera & Animation Phases logic
     if (this.phase === 'converge') {
-      // Step 1: Convergence (0s - 4s)
-      this.shakeIntensity = Math.min(2.0, elapsed * 0.5);
+      // 1. Converging swirl phase (0s - 4.5s)
+      this.shakeIntensity = Math.min(0.5, elapsed * 0.12);
+
+      // Camera orbital path
+      this.camera.position.x = Math.sin(now * 0.0006) * 55;
+      this.camera.position.z = Math.cos(now * 0.0006) * 55;
+      this.camera.position.y = 8 + Math.sin(now * 0.0003) * 5;
+      this.camera.lookAt(0, 0, 0);
+
+      // Swirling particles animation
+      const factor = Math.max(0, 1 - elapsed / 4.5);
+      const vortexPos = this.vortexPoints.geometry.attributes.position;
       
-      // Spawning swirling streams
-      const angle = elapsed * 3.5;
-      const radius = Math.max(this.width, this.height) * 0.45 * (1 - elapsed / 4.0);
-      
-      // Source A: Blue plasma stream
-      const xA = centerX + Math.cos(angle) * radius;
-      const yA = centerY + Math.sin(angle) * radius;
-      const vxA = -Math.sin(angle) * 3 + (Math.random() - 0.5) * 2;
-      const vyA = Math.cos(angle) * 3 + (Math.random() - 0.5) * 2;
-      for (let i = 0; i < 3; i++) {
-        this.spawnFlame(xA, yA, vxA, vyA, 'blue');
-        this.spawnEmber(xA, yA, vxA * 1.5, vyA * 1.5, 'blue');
+      for (let i = 0; i < this.vortexCount; i++) {
+        const data = this.vortexData[i];
+        data.angle += 0.02 * data.speed;
+        
+        const currentRad = factor * data.radiusStart + (1 - factor) * data.radiusTarget;
+        const x = Math.cos(data.angle) * currentRad;
+        const z = Math.sin(data.angle) * currentRad;
+        const y = data.height + Math.sin(data.angle * 1.5) * 3;
+        
+        vortexPos.setXYZ(i, x, y, z);
+      }
+      vortexPos.needsUpdate = true;
+
+      // Aura flame column rises slowly
+      const auraPos = this.auraPoints.geometry.attributes.position;
+      for (let i = 0; i < this.auraCount; i++) {
+        const data = this.auraData[i];
+        data.yVal += 0.06 * data.speed;
+        if (data.yVal > 25) data.yVal = -20;
+        
+        const wobble = Math.sin(now * 0.001 * data.wobbleSpeed) * 0.25;
+        const x = Math.cos(data.angle) * data.radius + wobble;
+        const z = Math.sin(data.angle) * data.radius + wobble;
+        
+        auraPos.setXYZ(i, x, data.yVal, z);
+      }
+      auraPos.needsUpdate = true;
+
+      if (Math.random() < 0.04 * elapsed) {
+        this.triggerLightning();
       }
 
-      // Source B: Yellowish-Red solar stream
-      const xB = centerX + Math.cos(angle + Math.PI) * radius;
-      const yB = centerY + Math.cos(angle + Math.PI) * radius;
-      const vxB = -Math.sin(angle + Math.PI) * 3 + (Math.random() - 0.5) * 2;
-      const vyB = Math.cos(angle + Math.PI) * 3 + (Math.random() - 0.5) * 2;
-      for (let i = 0; i < 3; i++) {
-        this.spawnFlame(xB, yB, vxB, vyB, 'yellow-red');
-        this.spawnEmber(xB, yB, vxB * 1.5, vyB * 1.5, 'yellow-red');
-      }
-
-      if (Math.random() < 0.03 * elapsed) {
-        this.triggerLightningStrike(xA, yA, xB, yB);
-      }
-
-      if (elapsed >= 4.0) {
+      if (elapsed >= 4.5) {
         this.phase = 'tornado';
         this.phaseTimer = now;
-        this.shakeIntensity = 8.0;
-        this.spawnShockwave(false, 35);
-        // Collision blast
-        this.triggerLightningStrike(centerX - 100, centerY - 100, centerX + 100, centerY + 100);
+        this.shakeIntensity = 3.5;
+        this.triggerLightning();
       }
     } else if (this.phase === 'tornado') {
-      // Step 2: Fire Tornado collision (4s - 6s)
-      this.shakeIntensity = 8.0 - (elapsed * 2.0);
-      
-      // Spawning swirling tornado in center
-      const angle = Date.now() * 0.008;
-      const tornadoRadius = 15;
-      
-      for (let i = 0; i < 5; i++) {
-        const theta = angle + i * (Math.PI / 2.5);
-        const xOffset = Math.cos(theta) * tornadoRadius;
-        const yOffset = Math.sin(theta) * tornadoRadius;
-        const vx = -Math.sin(theta) * 4 + (Math.random() - 0.5) * 2;
-        const vy = -3 - Math.random() * 5; // rise rapidly
-        
-        // Spawn mixed flames
-        this.spawnFlame(centerX + xOffset, centerY + yOffset, vx, vy, 'blue');
-        this.spawnFlame(centerX - xOffset, centerY - yOffset, -vx, vy, 'yellow-red');
-        
-        this.spawnEmber(centerX + xOffset, centerY + yOffset, vx * 1.8, vy, 'blue');
-        this.spawnEmber(centerX - xOffset, centerY - yOffset, -vx * 1.8, vy, 'yellow-red');
-      }
+      // 2. High-energy fire tornado column (4.5s - 6.5s)
+      this.shakeIntensity = 3.5;
 
-      if (Math.random() < 0.25) {
-        const rx = centerX + (Math.random() - 0.5) * 300;
-        const ry = centerY + (Math.random() - 0.5) * 300;
-        this.triggerLightningStrike(Math.random() * this.width, 0, rx, ry);
+      // Camera shakes heavily
+      const dx = (Math.random() - 0.5) * this.shakeIntensity;
+      const dy = (Math.random() - 0.5) * this.shakeIntensity;
+      const dz = (Math.random() - 0.5) * this.shakeIntensity;
+      
+      this.camera.position.x = Math.sin(now * 0.0012) * 45 + dx;
+      this.camera.position.z = Math.cos(now * 0.0012) * 45 + dz;
+      this.camera.position.y = 5 + dy;
+      this.camera.lookAt(0, 5, 0);
+
+      // Fast rising fire tornado animation
+      const auraPos = this.auraPoints.geometry.attributes.position;
+      for (let i = 0; i < this.auraCount; i++) {
+        const data = this.auraData[i];
+        data.yVal += 0.28 * data.speed; // rises extremely fast
+        data.angle += 0.05; // rapid spin
+        
+        if (data.yVal > 35) {
+          data.yVal = -20;
+        }
+
+        const x = Math.cos(data.angle) * (data.radius * 0.8);
+        const z = Math.sin(data.angle) * (data.radius * 0.8);
+        
+        auraPos.setXYZ(i, x, data.yVal, z);
+      }
+      auraPos.needsUpdate = true;
+
+      // Vortex wraps tornado tightly
+      const vortexPos = this.vortexPoints.geometry.attributes.position;
+      for (let i = 0; i < this.vortexCount; i++) {
+        const data = this.vortexData[i];
+        data.angle += 0.08 * data.speed;
+        data.height += 0.15;
+        if (data.height > 30) data.height = -15;
+
+        const x = Math.cos(data.angle) * (data.radiusTarget * 0.9);
+        const z = Math.sin(data.angle) * (data.radiusTarget * 0.9);
+        
+        vortexPos.setXYZ(i, x, data.height, z);
+      }
+      vortexPos.needsUpdate = true;
+
+      if (Math.random() < 0.32) {
+        this.triggerLightning();
       }
 
       if (elapsed >= 2.0) {
         this.phase = 'explode';
         this.phaseTimer = now;
-        this.shakeIntensity = 18.0;
+        this.shakeIntensity = 7.0;
         this.flashAlpha = 1.0;
-        this.spawnShockwave(true, 75);
-        // Radial blast
-        const pCount = 180;
-        for (let i = 0; i < pCount; i++) {
-          const theta = (i / pCount) * Math.PI * 2;
-          const speed = 8 + Math.random() * 24;
-          const vx = Math.cos(theta) * speed;
-          const vy = Math.sin(theta) * speed;
-          const type = Math.random() < 0.5 ? 'blue' : 'yellow-red';
-          this.spawnFlame(centerX, centerY, vx, vy, type);
-          this.spawnEmber(centerX, centerY, vx * 1.3, vy * 1.3, type);
+        
+        // Fullscreen flash display
+        if (this.flashOverlay) {
+          this.flashOverlay.style.opacity = '1.0';
+        }
+
+        // Initialize radial explosion velocities
+        // Vortex explosion physics
+        for (let i = 0; i < this.vortexCount; i++) {
+          const data = this.vortexData[i];
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(Math.random() * 2 - 1);
+          const force = 40 + Math.random() * 70;
+          
+          data.vx = Math.sin(phi) * Math.cos(theta) * force;
+          data.vy = Math.cos(phi) * force;
+          data.vz = Math.sin(phi) * Math.sin(theta) * force;
+        }
+
+        // Aura explosion physics
+        for (let i = 0; i < this.auraCount; i++) {
+          const data = this.auraData[i];
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(Math.random() * 2 - 1);
+          const force = 30 + Math.random() * 60;
+          
+          data.vx = Math.sin(phi) * Math.cos(theta) * force;
+          data.vy = Math.cos(phi) * force;
+          data.vz = Math.sin(phi) * Math.sin(theta) * force;
         }
       }
     } else if (this.phase === 'explode') {
-      // Step 3: Explosion (6s - 7.2s)
-      this.shakeIntensity *= 0.85;
-      this.flashAlpha *= 0.82;
+      // 3. Supernova explosion blast (6.5s - 7.5s)
+      this.shakeIntensity *= 0.88;
+      this.flashAlpha *= 0.84;
+      
+      if (this.flashOverlay) {
+        this.flashOverlay.style.opacity = this.flashAlpha.toString();
+      }
 
-      if (elapsed >= 1.2) {
+      // Camera slowly retracts during blast
+      this.camera.position.set(0, 0, 50 + elapsed * 10);
+      this.camera.lookAt(0, 0, 0);
+
+      // Animate explosion radial velocities
+      const dt = 0.016; // fixed timestep approx
+      
+      const vortexPos = this.vortexPoints.geometry.attributes.position;
+      for (let i = 0; i < this.vortexCount; i++) {
+        const data = this.vortexData[i];
+        let x = vortexPos.getX(i) + data.vx * dt;
+        let y = vortexPos.getY(i) + data.vy * dt;
+        let z = vortexPos.getZ(i) + data.vz * dt;
+        
+        // Apply friction/drag
+        data.vx *= 0.94;
+        data.vy *= 0.94;
+        data.vz *= 0.94;
+        
+        vortexPos.setXYZ(i, x, y, z);
+      }
+      vortexPos.needsUpdate = true;
+
+      const auraPos = this.auraPoints.geometry.attributes.position;
+      for (let i = 0; i < this.auraCount; i++) {
+        const data = this.auraData[i];
+        let x = auraPos.getX(i) + data.vx * dt;
+        let y = auraPos.getY(i) + data.vy * dt;
+        let z = auraPos.getZ(i) + data.vz * dt;
+        
+        data.vx *= 0.94;
+        data.vy *= 0.94;
+        data.vz *= 0.94;
+        
+        auraPos.setXYZ(i, x, y, z);
+      }
+      auraPos.needsUpdate = true;
+
+      if (elapsed >= 1.0) {
         this.phase = 'settle';
         this.phaseTimer = now;
-        const entryCont = document.getElementById('intro-entry-container');
-        if (entryCont) {
-          entryCont.style.display = 'block';
+        const entryContainer = document.getElementById('intro-entry-container');
+        if (entryContainer) {
+          entryContainer.style.display = 'block';
         }
       }
     } else if (this.phase === 'settle') {
-      // Step 4: Settle (7.2s+)
+      // 4. Post-explosion cosmic stardust drift (7.5s+)
       this.shakeIntensity = 0;
       this.flashAlpha = 0;
+      if (this.flashOverlay) {
+        this.flashOverlay.style.opacity = '0';
+      }
+
+      this.camera.position.set(0, 0, 60);
+      this.camera.lookAt(0, 0, 0);
+
+      // Particles float slowly downwards/sideways like stardust
+      const vortexPos = this.vortexPoints.geometry.attributes.position;
+      for (let i = 0; i < this.vortexCount; i++) {
+        let x = vortexPos.getX(i) + Math.sin(now * 0.0005 + i) * 0.015;
+        let y = vortexPos.getY(i) - 0.02; // slow fall
+        let z = vortexPos.getZ(i) + Math.cos(now * 0.0005 + i) * 0.015;
+        vortexPos.setXYZ(i, x, y, z);
+      }
+      vortexPos.needsUpdate = true;
+
+      const auraPos = this.auraPoints.geometry.attributes.position;
+      for (let i = 0; i < this.auraCount; i++) {
+        let x = auraPos.getX(i) + Math.sin(now * 0.0005 + i) * 0.015;
+        let y = auraPos.getY(i) - 0.015; // slow fall
+        let z = auraPos.getZ(i) + Math.cos(now * 0.0005 + i) * 0.015;
+        auraPos.setXYZ(i, x, y, z);
+      }
+      auraPos.needsUpdate = true;
     }
 
-    this.update();
-    this.draw();
+    // Update lightning opacity
+    this.lightningLines.forEach(l => {
+      l.alpha -= l.decay;
+      if (l.mesh.material) {
+        l.mesh.material.opacity = l.alpha;
+      }
+    });
+
+    // Remove expired lightnings
+    this.lightningLines = this.lightningLines.filter(l => {
+      if (l.alpha <= 0.01) {
+        this.scene.remove(l.mesh);
+        l.mesh.geometry.dispose();
+        if (l.mesh.material) l.mesh.material.dispose();
+        return false;
+      }
+      return true;
+    });
+
+    // Render WebGL frame
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
 
     this.animationFrameId = requestAnimationFrame(() => this.loop());
-  },
-
-  update() {
-    // 1. Update flames
-    this.flames.forEach(f => {
-      f.x += f.vx;
-      f.y += f.vy;
-      f.vy -= 0.15; // heat rise
-      f.vx += Math.sin(f.wobbleVal) * 0.35; // wind wobble
-      f.wobbleVal += f.wobbleSpeed;
-      f.life -= f.decay;
-      f.size *= 0.94; // shrink
-    });
-    this.flames = this.flames.filter(f => f.life > 0 && f.size > 1);
-
-    // 2. Update embers
-    this.embers.forEach(e => {
-      e.x += e.vx;
-      e.y += e.vy;
-      e.vy -= 0.02; // slow rising embers
-      e.life -= e.decay;
-    });
-    this.embers = this.embers.filter(e => e.life > 0);
-
-    // 3. Update shockwaves
-    this.shockwaves.forEach(w => {
-      w.radius += w.speed;
-      w.alpha = 1 - (w.radius / w.maxRadius);
-    });
-    this.shockwaves = this.shockwaves.filter(w => w.radius < w.maxRadius);
-
-    // 4. Update lightnings
-    this.lightnings.forEach(l => {
-      l.alpha -= l.decay;
-    });
-    this.lightnings = this.lightnings.filter(l => l.alpha > 0);
-  },
-
-  drawLightningSegment(ctx, x1, y1, x2, y2, displace) {
-    if (displace < 3) {
-      ctx.lineTo(x2, y2);
-    } else {
-      const midX = (x1 + x2) / 2;
-      const midY = (y1 + y2) / 2;
-      const offX = (Math.random() - 0.5) * displace;
-      const offY = (Math.random() - 0.5) * displace;
-      this.drawLightningSegment(ctx, x1, y1, midX + offX, midY + offY, displace / 2);
-      this.drawLightningSegment(ctx, midX + offX, midY + offY, x2, y2, displace / 2);
-    }
-  },
-
-  renderLightning(ctx, l) {
-    ctx.save();
-    ctx.strokeStyle = `rgba(0, 242, 254, ${l.alpha * 0.65})`;
-    ctx.lineWidth = 5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.shadowColor = '#00f2fe';
-    ctx.shadowBlur = 18;
-    ctx.beginPath();
-    ctx.moveTo(l.startX, l.startY);
-    this.drawLightningSegment(ctx, l.startX, l.startY, l.endX, l.endY, l.displace);
-    ctx.stroke();
-
-    ctx.strokeStyle = `rgba(255, 255, 255, ${l.alpha})`;
-    ctx.lineWidth = 1.8;
-    ctx.shadowBlur = 0;
-    ctx.beginPath();
-    ctx.moveTo(l.startX, l.startY);
-    this.drawLightningSegment(ctx, l.startX, l.startY, l.endX, l.endY, l.displace);
-    ctx.stroke();
-    ctx.restore();
-  },
-
-  draw() {
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.20)';
-    this.ctx.fillRect(0, 0, this.width, this.height);
-
-    this.ctx.save();
-
-    // Camera Shake
-    if (this.shakeIntensity > 0.1) {
-      const dx = (Math.random() - 0.5) * this.shakeIntensity;
-      const dy = (Math.random() - 0.5) * this.shakeIntensity;
-      this.ctx.translate(dx, dy);
-    }
-
-    const centerX = this.width / 2;
-    const centerY = this.height / 2;
-
-    this.ctx.globalCompositeOperation = 'screen';
-
-    // 1. Draw Volumetric background lighting
-    if (this.phase === 'converge' || this.phase === 'tornado') {
-      const progress = this.phase === 'converge' ? Math.min(1.0, (Date.now() - this.phaseTimer) / 4000) : 1.0;
-      const bgGrad = this.ctx.createRadialGradient(
-        centerX, centerY, 0,
-        centerX, centerY, Math.max(this.width, this.height) * 0.42
-      );
-      bgGrad.addColorStop(0, `rgba(18, 22, 43, ${0.45 * progress})`);
-      bgGrad.addColorStop(0.5, `rgba(127, 0, 255, ${0.08 * progress})`);
-      bgGrad.addColorStop(1, 'rgba(0,0,0,0)');
-      this.ctx.fillStyle = bgGrad;
-      this.ctx.fillRect(0, 0, this.width, this.height);
-    }
-
-    // 2. Draw shockwaves
-    this.shockwaves.forEach(w => {
-      this.ctx.strokeStyle = `rgba(0, 242, 254, ${w.alpha * 0.38})`;
-      this.ctx.lineWidth = 4 * w.alpha;
-      this.ctx.beginPath();
-      this.ctx.arc(w.x, w.y, w.radius, 0, Math.PI * 2);
-      this.ctx.stroke();
-
-      this.ctx.strokeStyle = `rgba(255, 120, 0, ${w.alpha * 0.20})`;
-      this.ctx.lineWidth = 15 * w.alpha;
-      this.ctx.beginPath();
-      this.ctx.arc(w.x, w.y, w.radius, 0, Math.PI * 2);
-      this.ctx.stroke();
-    });
-
-    // 3. Draw volumetric flames (Additive Blending)
-    this.flames.forEach(f => {
-      let r, g, b;
-      const life = f.life;
-      
-      if (f.colorType === 'blue') {
-        if (life > 0.6) {
-          r = 255; g = 255; b = 255; // White hot
-        } else if (life > 0.3) {
-          r = 0; g = 242; b = 254;   // Cyber Cyan
-        } else {
-          r = 79; g = 172; b = 254;  // Cosmic Blue
-        }
-      } else {
-        if (life > 0.6) {
-          r = 255; g = 255; b = 255; // White hot
-        } else if (life > 0.3) {
-          r = 255; g = 180; b = 0;   // Solar Gold
-        } else {
-          r = 239; g = 68; b = 68;   // Flame Red
-        }
-      }
-
-      const radGrad = this.ctx.createRadialGradient(
-        f.x, f.y, 0,
-        f.x, f.y, f.size
-      );
-      radGrad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${life * 0.85})`);
-      radGrad.addColorStop(0.35, `rgba(${r}, ${g}, ${b}, ${life * 0.32})`);
-      radGrad.addColorStop(1, 'rgba(0,0,0,0)');
-
-      this.ctx.fillStyle = radGrad;
-      this.ctx.beginPath();
-      this.ctx.arc(f.x, f.y, f.size, 0, Math.PI * 2);
-      this.ctx.fill();
-    });
-
-    // 4. Draw embers
-    this.embers.forEach(e => {
-      let color;
-      if (e.colorType === 'blue') {
-        color = `rgba(0, 242, 254, ${e.life})`;
-      } else {
-        color = `rgba(255, 140, 0, ${e.life})`;
-      }
-      this.ctx.fillStyle = color;
-      this.ctx.beginPath();
-      this.ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
-      this.ctx.fill();
-    });
-
-    // 5. Draw lightnings
-    this.lightnings.forEach(l => {
-      this.renderLightning(this.ctx, l);
-    });
-
-    this.ctx.restore();
-
-    // 6. Draw Fullscreen flash on impact
-    if (this.flashAlpha > 0.01) {
-      this.ctx.fillStyle = `rgba(225, 250, 255, ${this.flashAlpha * 0.95})`;
-      this.ctx.fillRect(0, 0, this.width, this.height);
-    }
   },
 
   terminate() {
     this.active = false;
     window.removeEventListener('resize', this.handleResize);
+
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
+    }
+
+    // Clean up WebGL resources to prevent memory leaks
+    try {
+      if (this.vortexPoints) {
+        this.scene.remove(this.vortexPoints);
+        this.vortexPoints.geometry.dispose();
+        if (this.vortexPoints.material) this.vortexPoints.material.dispose();
+      }
+      if (this.auraPoints) {
+        this.scene.remove(this.auraPoints);
+        this.auraPoints.geometry.dispose();
+        if (this.auraPoints.material) this.auraPoints.material.dispose();
+      }
+      this.lightningLines.forEach(l => {
+        this.scene.remove(l.mesh);
+        l.mesh.geometry.dispose();
+        if (l.mesh.material) l.mesh.material.dispose();
+      });
+      if (this.glowTexture) {
+        this.glowTexture.dispose();
+      }
+      if (this.renderer) {
+        this.renderer.dispose();
+      }
+    } catch (e) {
+      console.error('WebGL Cleanup error:', e);
+    }
+
+    if (this.flashOverlay) {
+      this.flashOverlay.remove();
     }
 
     const container = document.getElementById('cinematic-intro-container');
