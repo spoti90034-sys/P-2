@@ -16,8 +16,15 @@ filesToCopy.forEach(file => {
   const src = path.join(__dirname, file);
   const dest = path.join(wwwDir, file);
   if (fs.existsSync(src)) {
-    fs.copyFileSync(src, dest);
-    console.log(`Copied ${file} to www/`);
+    if (file === 'index.html') {
+      let htmlContent = fs.readFileSync(src, 'utf8');
+      htmlContent = htmlContent.replace('window.IS_WEBSITE = true', 'window.IS_WEBSITE = false');
+      fs.writeFileSync(dest, htmlContent, 'utf8');
+      console.log(`Copied index.html with window.IS_WEBSITE = false to www/`);
+    } else {
+      fs.copyFileSync(src, dest);
+      console.log(`Copied ${file} to www/`);
+    }
   } else {
     console.error(`Error: ${file} not found!`);
   }

@@ -9,6 +9,20 @@
 </head>
 <body>
 
+  <script>
+    // Global flag for website vs mobile app (modified during build_mobile.js copy)
+    window.IS_WEBSITE = true;
+  </script>
+
+  <!-- Cinematic Website Intro Animation -->
+  <div id="cinematic-intro-container" class="cinematic-intro-container" style="display: none;">
+    <canvas id="intro-canvas"></canvas>
+    <button id="skip-intro-btn" class="skip-intro-btn">SKIP INTRO</button>
+    <div id="intro-entry-container" class="intro-entry-container" style="display: none;">
+      <button id="intro-enter-btn" class="intro-enter-btn">ENTER YOUR GYM</button>
+    </div>
+  </div>
+
   <!-- App Main Wrapper -->
   <div id="app">
 

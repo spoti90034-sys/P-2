@@ -4004,6 +4004,11 @@ window.deleteIntakeEntry = function(type, id) {
    9. INITIALIZATION BINDINGS
    ========================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
+  // Start the cinematic intro animation if on website
+  if (typeof CinematicIntro !== 'undefined') {
+    CinematicIntro.start();
+  }
+
   // Auto-login check (asynchronously, does not block event binding below)
   if (typeof supabaseInitPromise !== 'undefined' && supabaseInitPromise) {
     supabaseInitPromise.then(() => {
@@ -5281,4 +5286,437 @@ async function deleteCustomSplit(programId) {
     }
   );
 }
+
+/* ==========================================================================
+   10. CINEMATIC PARTICLE INTRO ENGINE
+   ========================================================================== */
+const CinematicIntro = {
+  active: false,
+  canvas: null,
+  ctx: null,
+  animationFrameId: null,
+  particles: [],
+  targetPoints: [],
+  phase: 'assemble', // 'assemble', 'flex', 'explode', 'settle'
+  phaseTimer: 0,
+  width: 0,
+  height: 0,
+  shockwaves: [],
+  glowIntensity: 0,
+
+  start() {
+    const container = document.getElementById('cinematic-intro-container');
+    if (!container) return;
+
+    // Check platform flag
+    if (!window.IS_WEBSITE) {
+      container.style.display = 'none';
+      container.remove();
+      return;
+    }
+
+    container.style.display = 'flex';
+    this.canvas = document.getElementById('intro-canvas');
+    if (!this.canvas) return;
+
+    this.ctx = this.canvas.getContext('2d');
+    this.active = true;
+    this.phase = 'assemble';
+    this.phaseTimer = Date.now();
+    this.particles = [];
+    this.shockwaves = [];
+    this.glowIntensity = 0;
+
+    // Resize handler
+    this.resize();
+    window.addEventListener('resize', this.handleResize);
+
+    // Bind skip and enter buttons
+    const skipBtn = document.getElementById('skip-intro-btn');
+    if (skipBtn) {
+      skipBtn.addEventListener('click', () => this.terminate());
+    }
+
+    const enterBtn = document.getElementById('intro-enter-btn');
+    if (enterBtn) {
+      enterBtn.addEventListener('click', () => this.terminate());
+    }
+
+    // Generate targets and particles
+    this.generateHumanoidTargets();
+    this.initParticles();
+
+    // Start render loop
+    requestAnimationFrame((t) => this.loop(t));
+  },
+
+  handleResize: null,
+
+  resize() {
+    this.width = window.innerWidth;
+    this.height = window.innerHeight;
+    this.canvas.width = this.width;
+    this.canvas.height = this.height;
+    this.generateHumanoidTargets();
+  },
+
+  generateHumanoidTargets() {
+    this.targetPoints = [];
+    const count = 1000;
+    const centerX = this.width / 2;
+    const centerY = this.height / 2 + 50; 
+    const scale = Math.min(this.width, this.height) * 0.0035; 
+
+    // 15% head (circle)
+    const headCount = Math.floor(count * 0.15);
+    const headRadius = 25 * scale;
+    const headCenterY = centerY - 110 * scale;
+    for (let i = 0; i < headCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = Math.random() * headRadius;
+      this.targetPoints.push({
+        x: centerX + Math.cos(angle) * r,
+        y: headCenterY + Math.sin(angle) * r
+      });
+    }
+
+    // 35% torso (trapezoid-like chest and waist)
+    const torsoCount = Math.floor(count * 0.35);
+    for (let i = 0; i < torsoCount; i++) {
+      const yRel = -80 + Math.random() * 90; 
+      const t = (yRel + 80) / 90; 
+      const halfW = (35 - t * 18) * scale;
+      const xRel = (Math.random() * 2 - 1) * halfW;
+      this.targetPoints.push({
+        x: centerX + xRel,
+        y: centerY + yRel * scale
+      });
+    }
+
+    // 25% flexed arms (left and right biceps/forearms arches)
+    const armCount = Math.floor(count * 0.25);
+    const halfArm = Math.floor(armCount / 2);
+    // Left arm
+    for (let i = 0; i < halfArm; i++) {
+      const t = Math.random();
+      let xRel, yRel;
+      if (t < 0.5) {
+        const u = t * 2;
+        xRel = -35 - u * 35;
+        yRel = -70 + u * 10;
+      } else {
+        const u = (t - 0.5) * 2;
+        xRel = -70 + u * 20;
+        yRel = -60 - u * 40;
+      }
+      xRel += (Math.random() * 2 - 1) * 6;
+      yRel += (Math.random() * 2 - 1) * 6;
+      this.targetPoints.push({
+        x: centerX + xRel * scale,
+        y: centerY + yRel * scale
+      });
+    }
+    // Right arm
+    for (let i = 0; i < halfArm; i++) {
+      const t = Math.random();
+      let xRel, yRel;
+      if (t < 0.5) {
+        const u = t * 2;
+        xRel = 35 + u * 35;
+        yRel = -70 + u * 10;
+      } else {
+        const u = (t - 0.5) * 2;
+        xRel = 70 - u * 20;
+        yRel = -60 - u * 40;
+      }
+      xRel += (Math.random() * 2 - 1) * 6;
+      yRel += (Math.random() * 2 - 1) * 6;
+      this.targetPoints.push({
+        x: centerX + xRel * scale,
+        y: centerY + yRel * scale
+      });
+    }
+
+    // 25% legs (left and right wide stance lines)
+    const legCount = count - headCount - torsoCount - armCount;
+    const halfLeg = Math.floor(legCount / 2);
+    // Left leg
+    for (let i = 0; i < halfLeg; i++) {
+      const t = Math.random();
+      const xRel = -20 - t * 25;
+      const yRel = 10 + t * 100;
+      const thickX = (Math.random() * 2 - 1) * 8;
+      const thickY = (Math.random() * 2 - 1) * 4;
+      this.targetPoints.push({
+        x: centerX + (xRel + thickX) * scale,
+        y: centerY + (yRel + thickY) * scale
+      });
+    }
+    // Right leg
+    for (let i = 0; i < (legCount - halfLeg); i++) {
+      const t = Math.random();
+      const xRel = 20 + t * 25;
+      const yRel = 10 + t * 100;
+      const thickX = (Math.random() * 2 - 1) * 8;
+      const thickY = (Math.random() * 2 - 1) * 4;
+      this.targetPoints.push({
+        x: centerX + (xRel + thickX) * scale,
+        y: centerY + (yRel + thickY) * scale
+      });
+    }
+  },
+
+  initParticles() {
+    this.particles = [];
+    const count = 1800; 
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = Math.max(this.width, this.height) * (0.5 + Math.random() * 0.5);
+      const x = this.width / 2 + Math.cos(angle) * r;
+      const y = this.height / 2 + Math.sin(angle) * r;
+
+      const rand = Math.random();
+      let color;
+      if (rand < 0.35) {
+        color = { r: 0, g: 242, b: 254 }; 
+      } else if (rand < 0.65) {
+        color = { r: 79, g: 172, b: 254 }; 
+      } else if (rand < 0.85) {
+        color = { r: 255, g: 180, b: 0 }; 
+      } else {
+        color = { r: 255, g: 255, b: 255 }; 
+      }
+
+      this.particles.push({
+        x: x,
+        y: y,
+        ox: x, 
+        oy: y, 
+        vx: (Math.random() - 0.5) * 4,
+        vy: (Math.random() - 0.5) * 4,
+        size: 1 + Math.random() * 2,
+        color: color,
+        alpha: 0.1 + Math.random() * 0.9,
+        targetIdx: i < this.targetPoints.length ? i : -1, 
+        speedFactor: 0.02 + Math.random() * 0.04,
+        noiseSeed: Math.random() * 1000
+      });
+    }
+  },
+
+  loop() {
+    if (!this.active) return;
+
+    const now = Date.now();
+    const elapsed = (now - this.phaseTimer) / 1000;
+
+    if (this.phase === 'assemble' && elapsed >= 3.0) {
+      this.phase = 'flex';
+      this.phaseTimer = now;
+      this.spawnShockwave();
+    } else if (this.phase === 'flex' && elapsed >= 2.0) {
+      this.phase = 'explode';
+      this.phaseTimer = now;
+      this.spawnShockwave(true);
+    } else if (this.phase === 'explode' && elapsed >= 1.5) {
+      this.phase = 'settle';
+      this.phaseTimer = now;
+      const entryCont = document.getElementById('intro-entry-container');
+      if (entryCont) {
+        entryCont.style.display = 'block';
+      }
+    }
+
+    this.update(elapsed);
+    this.draw();
+
+    this.animationFrameId = requestAnimationFrame(() => this.loop());
+  },
+
+  spawnShockwave(isFinal = false) {
+    this.shockwaves.push({
+      x: this.width / 2,
+      y: this.height / 2,
+      radius: 0,
+      maxRadius: Math.max(this.width, this.height) * (isFinal ? 1.2 : 0.8),
+      speed: isFinal ? 15 : 8,
+      force: isFinal ? 45 : 12,
+      alpha: 1
+    });
+  },
+
+  update(elapsed) {
+    const centerX = this.width / 2;
+    const centerY = this.height / 2;
+
+    this.shockwaves.forEach(w => {
+      w.radius += w.speed;
+      w.alpha = 1 - (w.radius / w.maxRadius);
+    });
+    this.shockwaves = this.shockwaves.filter(w => w.radius < w.maxRadius);
+
+    this.particles.forEach(p => {
+      if (this.phase === 'assemble') {
+        if (p.targetIdx !== -1) {
+          const target = this.targetPoints[p.targetIdx];
+          const force = p.speedFactor * Math.min(1, elapsed / 1.5);
+          p.vx += (target.x - p.x) * force;
+          p.vy += (target.y - p.y) * force;
+          p.vx *= 0.82;
+          p.vy *= 0.82;
+        } else {
+          const dx = p.x - centerX;
+          const dy = p.y - centerY;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const swirlForce = 0.5;
+          p.vx += (-dy / dist) * swirlForce;
+          p.vx += (centerX - p.x) * 0.001;
+          p.vy += (dx / dist) * swirlForce;
+          p.vy += (centerY - p.y) * 0.001;
+          p.vx *= 0.95;
+          p.vy *= 0.95;
+        }
+      } else if (this.phase === 'flex') {
+        if (p.targetIdx !== -1) {
+          const target = this.targetPoints[p.targetIdx];
+          p.vx += (target.x - p.x) * 0.15;
+          p.vy += (target.y - p.y) * 0.15;
+          p.vx += (Math.random() - 0.5) * 1.5;
+          p.vy += (Math.random() - 0.5) * 1.5;
+          p.vx *= 0.7;
+          p.vy *= 0.7;
+        } else {
+          const dx = p.x - centerX;
+          const dy = p.y - centerY;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          p.vx += (-dy / dist) * 1.2;
+          p.vx += (centerX - p.x) * 0.003;
+          p.vy += (dx / dist) * 1.2;
+          p.vy += (centerY - p.y) * 0.003;
+          p.vx *= 0.9;
+          p.vy *= 0.9;
+        }
+
+        if (Math.random() < 0.03 && this.shockwaves.length < 2) {
+          this.spawnShockwave(false);
+        }
+      } else if (this.phase === 'explode') {
+        if (p.targetIdx !== -1) {
+          const dx = p.x - centerX;
+          const dy = p.y - centerY;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          p.vx += (dx / dist) * (15 + Math.random() * 25);
+          p.vy += (dy / dist) * (15 + Math.random() * 25);
+          p.targetIdx = -1;
+        }
+        p.vx *= 0.92;
+        p.vy *= 0.92;
+      } else if (this.phase === 'settle') {
+        p.vx *= 0.95;
+        p.vy *= 0.95;
+        p.vy += 0.04; 
+        p.alpha -= 0.008; 
+      }
+
+      this.shockwaves.forEach(w => {
+        const dx = p.x - w.x;
+        const dy = p.y - w.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const width = 80; 
+        if (dist > w.radius - width && dist < w.radius + width) {
+          const intensity = 1 - Math.abs(dist - w.radius) / width;
+          const pushForce = w.force * intensity * w.alpha;
+          p.vx += (dx / dist) * pushForce;
+          p.vy += (dy / dist) * pushForce;
+        }
+      });
+
+      p.x += p.vx;
+      p.y += p.vy;
+
+      if (this.phase === 'assemble' && p.targetIdx === -1) {
+        if (p.x < 0 || p.x > this.width || p.y < 0 || p.y > this.height) {
+          const angle = Math.random() * Math.PI * 2;
+          const r = Math.max(this.width, this.height) * 0.45;
+          p.x = centerX + Math.cos(angle) * r;
+          p.y = centerY + Math.sin(angle) * r;
+          p.vx = 0;
+          p.vy = 0;
+        }
+      }
+    });
+
+    if (this.phase === 'settle') {
+      this.particles = this.particles.filter(p => p.alpha > 0);
+    }
+  },
+
+  draw() {
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
+    this.ctx.fillRect(0, 0, this.width, this.height);
+
+    if (this.phase === 'assemble' || this.phase === 'flex') {
+      const gradient = this.ctx.createRadialGradient(
+        this.width / 2, this.height / 2, 0,
+        this.width / 2, this.height / 2, Math.max(this.width, this.height) * 0.35
+      );
+      const progress = this.phase === 'assemble' ? Math.min(1, (Date.now() - this.phaseTimer) / 3000) : 1;
+      gradient.addColorStop(0, `rgba(0, 110, 160, ${0.18 * progress})`);
+      gradient.addColorStop(0.5, `rgba(127, 0, 255, ${0.04 * progress})`);
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      this.ctx.fillStyle = gradient;
+      this.ctx.fillRect(0, 0, this.width, this.height);
+    }
+
+    this.shockwaves.forEach(w => {
+      this.ctx.strokeStyle = `rgba(0, 242, 254, ${w.alpha * 0.25})`;
+      this.ctx.lineWidth = 4 * w.alpha;
+      this.ctx.beginPath();
+      this.ctx.arc(w.x, w.y, w.radius, 0, Math.PI * 2);
+      this.ctx.stroke();
+
+      this.ctx.strokeStyle = `rgba(79, 172, 254, ${w.alpha * 0.08})`;
+      this.ctx.lineWidth = 12 * w.alpha;
+      this.ctx.beginPath();
+      this.ctx.arc(w.x, w.y, w.radius, 0, Math.PI * 2);
+      this.ctx.stroke();
+    });
+
+    const length = this.particles.length;
+    for (let i = 0; i < length; i++) {
+      const p = this.particles[i];
+      this.ctx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, ${p.alpha})`;
+      this.ctx.beginPath();
+      this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      if (p.size > 2 && Math.random() < 0.2) {
+        this.ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha * 0.6})`;
+        this.ctx.beginPath();
+        this.ctx.arc(p.x, p.y, p.size * 0.5, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+    }
+  },
+
+  terminate() {
+    this.active = false;
+    window.removeEventListener('resize', this.handleResize);
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+    }
+
+    const container = document.getElementById('cinematic-intro-container');
+    if (container) {
+      container.classList.add('fade-out');
+      setTimeout(() => {
+        container.style.display = 'none';
+        container.remove();
+      }, 1000);
+    }
+  }
+};
+
+CinematicIntro.handleResize = () => CinematicIntro.resize();
+
 

@@ -3718,6 +3718,148 @@ button, a, .nav-item, .drawer-nav-item, .exercise-card, .btn-vintage, .auth-tab-
   box-shadow: var(--shadow-glass);
 }
 
+/* ==========================================================================
+   11. CINEMATIC INTRO ANIMATION STYLES
+   ========================================================================== */
+.cinematic-intro-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #000000;
+  z-index: 100000;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 1s cubic-bezier(0.25, 1, 0.5, 1), transform 1s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.cinematic-intro-container.fade-out {
+  opacity: 0;
+  transform: scale(1.05);
+  pointer-events: none;
+}
+
+#intro-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.skip-intro-btn {
+  position: absolute;
+  top: 2rem;
+  right: 2rem;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(0, 242, 254, 0.3);
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 100002;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.skip-intro-btn:hover {
+  border-color: var(--color-cyan);
+  color: #fff;
+  box-shadow: var(--shadow-cyan-glow);
+  transform: translateY(-2px);
+}
+
+.intro-entry-container {
+  position: absolute;
+  z-index: 100001;
+  text-align: center;
+  animation: intro-fade-in 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes intro-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.intro-enter-btn {
+  background: linear-gradient(135deg, rgba(12, 16, 32, 0.85) 0%, rgba(18, 22, 43, 0.85) 100%);
+  border: 2px solid rgba(0, 242, 254, 0.6);
+  border-radius: 80px;
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  padding: 1.2rem 3rem;
+  cursor: pointer;
+  box-shadow: 
+    0 0 30px rgba(0, 242, 254, 0.2),
+    inset 0 0 15px rgba(0, 242, 254, 0.1);
+  text-transform: uppercase;
+  outline: none;
+  position: relative;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: intro-btn-pulse 2s infinite alternate;
+}
+
+.intro-enter-btn::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 80px;
+  background: linear-gradient(90deg, var(--color-cyan), var(--color-blue), var(--color-violet), var(--color-magenta));
+  z-index: -1;
+  opacity: 0.3;
+  transition: opacity 0.4s ease;
+}
+
+.intro-enter-btn:hover {
+  transform: scale(1.05);
+  border-color: #fff;
+  box-shadow: 
+    0 0 45px rgba(0, 242, 254, 0.6),
+    0 0 15px rgba(79, 172, 254, 0.4),
+    inset 0 0 25px rgba(0, 242, 254, 0.3);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+
+.intro-enter-btn:hover::before {
+  opacity: 0.9;
+}
+
+@keyframes intro-btn-pulse {
+  0% {
+    box-shadow: 
+      0 0 25px rgba(0, 242, 254, 0.2),
+      inset 0 0 15px rgba(0, 242, 254, 0.1);
+    transform: scale(1);
+  }
+  100% {
+    box-shadow: 
+      0 0 40px rgba(0, 242, 254, 0.4),
+      0 0 15px rgba(79, 172, 254, 0.2),
+      inset 0 0 20px rgba(0, 242, 254, 0.2);
+    transform: scale(1.02);
+  }
+}
+
 
 
 
