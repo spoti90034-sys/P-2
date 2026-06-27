@@ -3702,6 +3702,111 @@ function updateGamificationUI() {
 /* ==========================================================================
    7. SECTION 4: ANALYTICS & ATTENDANCE LEDGER
    ========================================================================== */
+let attendanceFireAnimationId = null;
+
+function triggerAttendanceBlueFire() {
+  let canvas = document.getElementById('attendance-celebration-canvas');
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.id = 'attendance-celebration-canvas';
+    canvas.style.position = 'fixed';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.width = '100%';
+    canvas.style.height = '150px';
+    canvas.style.zIndex = '99999';
+    canvas.style.pointerEvents = 'none';
+    document.body.appendChild(canvas);
+  }
+
+  // Set buffer size to match viewport width
+  canvas.width = window.innerWidth;
+  canvas.height = 150;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  if (attendanceFireAnimationId) {
+    cancelAnimationFrame(attendanceFireAnimationId);
+  }
+
+  const startTime = performance.now();
+  const duration = 2000; // 2 seconds sweep
+  let particles = [];
+
+  function animLoop(now) {
+    const elapsed = now - startTime;
+    const t = Math.min(1.0, elapsed / duration);
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (t >= 1.0) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      attendanceFireAnimationId = null;
+      return;
+    }
+
+    // Fireball position coordinates: left-to-right sweep with wavy sine height
+    const fx = t * canvas.width;
+    const fy = 55 + Math.sin(t * Math.PI * 6.0) * 20;
+
+    // Spawn blue-aura particles
+    const spawnRate = 6;
+    for (let i = 0; i < spawnRate; i++) {
+      particles.push({
+        x: fx + (Math.random() - 0.5) * 10,
+        y: fy + (Math.random() - 0.5) * 10,
+        vx: -3.5 - Math.random() * 4.5, // fly backward
+        vy: -0.5 - Math.random() * 2.0, // float upward
+        life: 1.0,
+        decay: 0.035 + Math.random() * 0.035,
+        size: 10 + Math.random() * 14
+      });
+    }
+
+    // Update and draw particles (Visual Style Enhancer: Additive Blending)
+    ctx.globalCompositeOperation = 'lighter';
+    particles.forEach((p) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= p.decay;
+
+      if (p.life > 0) {
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * p.life);
+        grad.addColorStop(0, 'rgba(255, 255, 255, ' + p.life + ')'); // hot core
+        grad.addColorStop(0.3, 'rgba(0, 242, 254, ' + (p.life * 0.85) + ')'); // cyan glow
+        grad.addColorStop(0.7, 'rgba(0, 79, 254, ' + (p.life * 0.35) + ')'); // deep blue aura
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * p.life * 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+
+    // Keep active particles
+    particles = particles.filter(p => p.life > 0);
+
+    // Draw main glowing fireball head
+    const headGrad = ctx.createRadialGradient(fx, fy, 0, fx, fy, 32);
+    headGrad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+    headGrad.addColorStop(0.2, 'rgba(0, 242, 254, 0.95)');
+    headGrad.addColorStop(0.6, 'rgba(0, 79, 254, 0.45)');
+    headGrad.addColorStop(1, 'rgba(0,0,0,0)');
+
+    ctx.fillStyle = headGrad;
+    ctx.beginPath();
+    ctx.arc(fx, fy, 45, 0, Math.PI * 2);
+    ctx.fill();
+
+    attendanceFireAnimationId = requestAnimationFrame(animLoop);
+  }
+
+  attendanceFireAnimationId = requestAnimationFrame(animLoop);
+}
+
 function initAnalytics() {
   // Generate Attendance Grid
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -3722,6 +3827,9 @@ function initAnalytics() {
     cell.addEventListener('click', () => {
       STATE.attendance[idx] = !STATE.attendance[idx];
       cell.classList.toggle('active', STATE.attendance[idx]);
+      if (STATE.attendance[idx]) {
+        triggerAttendanceBlueFire();
+      }
       updateAnalyticsUI();
     });
 
