@@ -5297,23 +5297,26 @@ const CinematicIntro = {
   renderer: null,
   scene: null,
   camera: null,
-  glowTexture: null,
+  composer: null,
+  bloomPass: null,
 
-  // Shaders Uniforms
-  vortexUniforms: null,
-  auraUniforms: null,
+  // Volumetric Mesh assets
+  innerCylinder: null,
+  outerCylinder: null,
+  gokuMesh: null,
+  helicalTubes: [],
+  lightShafts: [],
+  lightningMeshes: [],
+  emberPoints: null,
+  emberData: [],
+  emberCount: 400,
 
-  // Particle systems
-  vortexPoints: null,
-  vortexData: [],
-  vortexCount: 3500,
+  // Uniforms
+  innerUniforms: null,
+  outerUniforms: null,
+  ribbonUniforms: null,
+  gokuUniforms: null,
 
-  auraPoints: null,
-  auraData: [],
-  auraCount: 3000,
-
-  lightningLines: [],
-  
   // Animation states
   phase: 'converge', // 'converge', 'tornado', 'explode', 'settle'
   phaseTimer: 0,
@@ -5344,11 +5347,14 @@ const CinematicIntro = {
     this.active = true;
     this.phase = 'converge';
     this.phaseTimer = Date.now();
-    this.lightningLines = [];
+    this.helicalTubes = [];
+    this.lightShafts = [];
+    this.lightningMeshes = [];
+    this.emberData = [];
     this.shakeIntensity = 0;
     this.flashAlpha = 0;
 
-    // Create fullscreen flash element overlay if it doesn't exist
+    // Create fullscreen flash overlay
     let flashDiv = document.getElementById('intro-flash-overlay');
     if (!flashDiv) {
       flashDiv = document.createElement('div');
@@ -5358,7 +5364,7 @@ const CinematicIntro = {
       flashDiv.style.left = '0';
       flashDiv.style.width = '100%';
       flashDiv.style.height = '100%';
-      flashDiv.style.backgroundColor = 'rgba(235, 250, 255, 0)';
+      flashDiv.style.backgroundColor = 'rgba(235, 255, 255, 0)';
       flashDiv.style.pointerEvents = 'none';
       flashDiv.style.zIndex = '5';
       flashDiv.style.transition = 'opacity 0.05s ease';
@@ -5391,17 +5397,162 @@ const CinematicIntro = {
 
   handleResize: null,
 
+  createGokuMannequin() {
+    const gokuGroup = new THREE.Group();
+    
+    // Toon Shading (Cel Shader) with Sobel Edge Outlines
+    const toonVertexShader = `
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
+      void main() {
+        vNormal = normalize(normalMatrix * normal);
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        vViewPosition = -mvPosition.xyz;
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `;
+
+    const toonFragmentShader = `
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
+      uniform vec3 uColor;
+      uniform float uOpacity;
+      void main() {
+        vec3 normal = normalize(vNormal);
+        vec3 viewDir = normalize(vViewPosition);
+        
+        // Aura lighting direction
+        vec3 lightDir = normalize(vec3(0.0, 0.8, 1.0));
+        float diffuse = dot(normal, lightDir);
+        
+        // Cel-shading stepping (2-tone flat anime shading)
+        float cel = step(0.18, diffuse) * 0.55 + 0.45;
+        
+        // Ink outline rim coefficient
+        float rim = dot(normal, viewDir);
+        float outline = step(0.24, rim);
+        
+        vec3 finalColor = uColor * cel;
+        
+        if (outline < 0.1) {
+          finalColor = vec3(0.02, 0.05, 0.10); // Ink blue borders
+        }
+        
+        gl_FragColor = vec4(finalColor, uOpacity);
+      }
+    `;
+
+    this.gokuUniforms = {
+      uColor: { value: new THREE.Color(0xebfaff) },
+      uOpacity: { value: 0.85 }
+    };
+
+    const gokuMat = new THREE.ShaderMaterial({
+      vertexShader: toonVertexShader,
+      fragmentShader: toonFragmentShader,
+      uniforms: this.gokuUniforms,
+      transparent: true,
+      depthWrite: true,
+      side: THREE.DoubleSide
+    });
+    
+    // 1. Torso/Chest (Broad chest representation)
+    const chestGeo = new THREE.SphereGeometry(2.2, 8, 8);
+    chestGeo.scale(1.25, 0.85, 0.85); 
+    const chest = new THREE.Mesh(chestGeo, gokuMat);
+    chest.position.y = 12;
+    gokuGroup.add(chest);
+
+    // 2. Abs/Waist (V-taper)
+    const waistGeo = new THREE.CylinderGeometry(1.3, 0.95, 3.2, 8);
+    const waist = new THREE.Mesh(waistGeo, gokuMat);
+    waist.position.y = 10.1;
+    gokuGroup.add(waist);
+
+    // 3. Shoulders and bent arms (Flexing power-up stance)
+    // Left Arm
+    const lShoulderGeo = new THREE.SphereGeometry(1.1, 8, 8);
+    const lShoulder = new THREE.Mesh(lShoulderGeo, gokuMat);
+    lShoulder.position.set(-2.8, 12.3, 0);
+    gokuGroup.add(lShoulder);
+    
+    const lBicepGeo = new THREE.CylinderGeometry(0.85, 0.7, 3.2, 8);
+    const lBicep = new THREE.Mesh(lBicepGeo, gokuMat);
+    lBicep.position.set(-3.6, 11.0, 0.5);
+    lBicep.rotation.z = 0.4;
+    gokuGroup.add(lBicep);
+    
+    const lForearmGeo = new THREE.CylinderGeometry(0.7, 0.5, 3.2, 8);
+    const lForearm = new THREE.Mesh(lForearmGeo, gokuMat);
+    lForearm.position.set(-4.0, 9.2, 1.0);
+    lForearm.rotation.x = 0.5;
+    gokuGroup.add(lForearm);
+
+    // Right Arm
+    const rShoulder = new THREE.Mesh(lShoulderGeo, gokuMat);
+    rShoulder.position.set(2.8, 12.3, 0);
+    gokuGroup.add(rShoulder);
+    
+    const rBicep = new THREE.Mesh(lBicepGeo, gokuMat);
+    rBicep.position.set(3.6, 11.0, 0.5);
+    rBicep.rotation.z = -0.4;
+    gokuGroup.add(rBicep);
+    
+    const rForearm = new THREE.Mesh(lForearmGeo, gokuMat);
+    rForearm.position.set(4.0, 9.2, 1.0);
+    rForearm.rotation.x = 0.5;
+    gokuGroup.add(rForearm);
+
+    // 4. Head
+    const headGeo = new THREE.SphereGeometry(1.15, 8, 8);
+    const head = new THREE.Mesh(headGeo, gokuMat);
+    head.position.y = 13.9;
+    gokuGroup.add(head);
+
+    // 5. Stylized Goku Spiky Hair (composed of multiple angled cones)
+    const hairCount = 7;
+    for (let i = 0; i < hairCount; i++) {
+      const hairGeo = new THREE.ConeGeometry(0.55, 3.4, 4);
+      const hair = new THREE.Mesh(hairGeo, gokuMat);
+      
+      const angle = (i / (hairCount - 1)) * Math.PI - Math.PI / 2;
+      hair.position.set(Math.sin(angle) * 1.1, 14.6 + Math.cos(angle) * 0.4, Math.sin(angle * 2) * 0.5);
+      hair.rotation.z = -angle * 0.95;
+      hair.rotation.x = 0.25;
+      gokuGroup.add(hair);
+    }
+
+    // 6. Wide stance muscular legs
+    // Left leg
+    const lLegGeo = new THREE.CylinderGeometry(1.0, 0.7, 7.2, 8);
+    const lLeg = new THREE.Mesh(lLegGeo, gokuMat);
+    lLeg.position.set(-1.6, 6.5, 0);
+    lLeg.rotation.z = 0.25;
+    gokuGroup.add(lLeg);
+    
+    // Right leg
+    const rLeg = new THREE.Mesh(lLegGeo, gokuMat);
+    rLeg.position.set(1.6, 6.5, 0);
+    rLeg.rotation.z = -0.25;
+    gokuGroup.add(rLeg);
+
+    gokuGroup.scale.set(0.65, 0.65, 0.65);
+    gokuGroup.position.y = -8;
+    
+    return gokuGroup;
+  },
+
   initWebGL() {
     const width = window.innerWidth;
     const height = window.innerHeight;
 
-    // 1. Scene setup
+    // 1. Scene and Fog
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.FogExp2(0x000000, 0.015);
 
     // 2. Camera setup
-    this.camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
-    this.camera.position.set(0, 5, 50);
+    this.camera = new THREE.PerspectiveCamera(55, width / height, 0.1, 1000);
+    this.camera.position.set(0, 8, 48);
 
     // 3. Renderer setup
     this.renderer = new THREE.WebGLRenderer({
@@ -5414,223 +5565,305 @@ const CinematicIntro = {
     const dpr = Math.min(window.devicePixelRatio, 2);
     this.renderer.setPixelRatio(dpr);
 
-    // 4. Uniforms definitions
-    this.vortexUniforms = {
-      uTime: { value: 0.0 }
-    };
-    this.auraUniforms = {
-      uTime: { value: 0.0 }
-    };
-
-    // Shaders GLSL definitions
-    const vortexVertexShader = `
-      uniform float uTime;
-      attribute float aSize;
-      attribute float aLife;
-      varying float vLife;
-      varying vec3 vColor;
-      void main() {
-        vLife = aLife;
-        vColor = color;
-        vec3 pos = position;
-        // high frequency vibration/crackle for plasma
-        pos.x += sin(pos.y * 1.5 + uTime * 12.0) * 0.12;
-        pos.z += cos(pos.y * 1.5 + uTime * 12.0) * 0.12;
-        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-        gl_Position = projectionMatrix * mvPosition;
-        gl_PointSize = aSize * (350.0 / -mvPosition.z);
-      }
-    `;
-
-    const vortexFragmentShader = `
-      uniform float uTime;
-      varying float vLife;
-      varying vec3 vColor;
-      void main() {
-        vec2 pc = gl_PointCoord - vec2(0.5);
-        float dist = length(pc);
-        if (dist > 0.5) discard;
-        // crackling shape boundary distortion
-        float noise = sin(pc.x * 20.0 + uTime * 25.0) * cos(pc.y * 20.0 - uTime * 20.0) * 0.06;
-        float boundary = 0.5 - abs(noise);
-        if (dist > boundary) discard;
-        float intensity = pow(1.0 - dist / boundary, 1.8);
-        vec3 finalColor = mix(vColor, vec3(1.0, 1.0, 1.0), intensity * 0.4);
-        gl_FragColor = vec4(finalColor * 1.6, intensity * vLife * 0.9);
-      }
-    `;
-
+    // 4. Shaders GLSL Code for Volumetric Aura Columns
     const auraVertexShader = `
       uniform float uTime;
-      attribute float aSize;
-      attribute float aLife;
-      varying float vLife;
-      varying vec3 vColor;
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
       void main() {
-        vLife = aLife;
-        vColor = color;
+        vUv = uv;
+        vNormal = normalize(normalMatrix * normal);
+        
+        // Undulate/warp column geometry vertically to look like real rising flames
         vec3 pos = position;
-        // organic flame swaying physics
-        pos.x += sin(pos.y * 0.4 + uTime * 2.5) * 0.35;
-        pos.z += cos(pos.y * 0.4 + uTime * 2.5) * 0.35;
+        float wave = sin(pos.y * 0.45 - uTime * 6.5) * 0.85;
+        float wave2 = cos(pos.y * 0.35 + uTime * 4.5) * 0.65;
+        pos.x += wave;
+        pos.z += wave2;
+        
         vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+        vViewPosition = -mvPosition.xyz;
         gl_Position = projectionMatrix * mvPosition;
-        gl_PointSize = aSize * (1.0 - (1.0 - vLife) * 0.5) * (300.0 / -mvPosition.z);
       }
     `;
 
     const auraFragmentShader = `
       uniform float uTime;
-      varying float vLife;
-      varying vec3 vColor;
-      void main() {
-        vec2 pc = gl_PointCoord - vec2(0.5);
-        float dist = length(pc);
-        if (dist > 0.5) discard;
-        // flickering fire tongue boundary distortion
-        float angle = atan(pc.y, pc.x);
-        float flicker = sin(angle * 5.0 + uTime * 15.0) * 0.08;
-        float boundary = 0.5 - flicker;
-        if (dist > boundary) discard;
-        float intensity = pow(1.0 - dist / boundary, 2.2);
-        vec3 finalColor = vColor;
-        if (vLife < 0.45) {
-          finalColor = mix(vec3(0.85, 0.0, 0.0), finalColor, vLife / 0.45);
+      uniform vec3 uColorInner;
+      uniform vec3 uColorOuter;
+      uniform float uAlpha;
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
+
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+      }
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i + vec2(0.0,0.0)), hash(i + vec2(1.0,0.0)), u.x),
+                   mix(hash(i + vec2(0.0,1.0)), hash(i + vec2(1.0,1.0)), u.x), u.y);
+      }
+      float fbm(vec2 p) {
+        float v = 0.0;
+        float a = 0.5;
+        vec2 shift = vec2(100.0);
+        mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
+        for (int i = 0; i < 4; ++i) {
+          v += a * noise(p);
+          p = rot * p * 2.0 + shift;
+          a *= 0.5;
         }
-        float alpha = intensity * vLife * 0.85;
-        gl_FragColor = vec4(finalColor * (1.7 * intensity), alpha);
+        return v;
+      }
+
+      void main() {
+        // Vertical scrolling of fractal flame noise
+        vec2 scrolledUv = vUv * vec2(2.5, 1.0) + vec2(0.0, -uTime * 1.8);
+        float n = fbm(scrolledUv * 3.5);
+        float distVal = fbm(scrolledUv * 7.0 + vec2(uTime * 0.8, 0.0));
+        n = mix(n, distVal, 0.3);
+
+        // 3D Rim lighting / Fresnel volume effect
+        vec3 normal = normalize(vNormal);
+        vec3 viewDir = normalize(vViewPosition);
+        float rim = 1.0 - max(0.0, dot(normal, viewDir));
+        float rimGlow = pow(rim, 2.2);
+
+        // Fluid flame color transition
+        vec3 finalColor = mix(uColorOuter, uColorInner, n * 1.3 + rimGlow * 0.5);
+        
+        // Intensified hot center core
+        if (n > 0.65) {
+          finalColor = mix(finalColor, vec3(1.0), (n - 0.65) / 0.35);
+        }
+
+        // Alpha calculation based on noise and rim light glow
+        float alpha = smoothstep(0.15, 0.6, n * 0.82 + rimGlow * 0.45);
+        
+        // Smoothly fade out edges at the top and bottom of cylinder column
+        float edgeFade = sin(vUv.y * 3.14159);
+        alpha *= pow(edgeFade, 2.0) * uAlpha;
+
+        gl_FragColor = vec4(finalColor * 2.2, alpha * 0.95);
       }
     `;
 
-    // 5. Vortex Particles setup
-    const vortexGeo = new THREE.BufferGeometry();
-    const vortexPositions = new Float32Array(this.vortexCount * 3);
-    const vortexColors = new Float32Array(this.vortexCount * 3);
-    const vortexSizes = new Float32Array(this.vortexCount);
-    const vortexLifes = new Float32Array(this.vortexCount);
-    this.vortexData = [];
+    // 5. Build Inner Blue Volumetric Column
+    this.innerUniforms = {
+      uTime: { value: 0.0 },
+      uColorInner: { value: new THREE.Color(0xffffff) }, // white hot center
+      uColorOuter: { value: new THREE.Color(0x00f2fe) }, // electric cyan edge
+      uAlpha: { value: 0.0 } // starts hidden
+    };
 
-    for (let i = 0; i < this.vortexCount; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const radiusStart = 35 + Math.random() * 40;
-      const radiusTarget = 3 + Math.random() * 8;
-      const height = (Math.random() - 0.5) * 15;
-      
-      const x = Math.cos(angle) * radiusStart;
-      const z = Math.sin(angle) * radiusStart;
-      const y = height;
-
-      vortexPositions[i * 3] = x;
-      vortexPositions[i * 3 + 1] = y;
-      vortexPositions[i * 3 + 2] = z;
-
-      if (Math.random() < 0.65) {
-        vortexColors[i * 3] = 0.0;     // R
-        vortexColors[i * 3 + 1] = 0.95; // G
-        vortexColors[i * 3 + 2] = 1.0;  // B
-      } else {
-        vortexColors[i * 3] = 0.15;
-        vortexColors[i * 3 + 1] = 0.45;
-        vortexColors[i * 3 + 2] = 1.0;
-      }
-
-      vortexSizes[i] = 1.0 + Math.random() * 2.2;
-      vortexLifes[i] = 1.0;
-
-      this.vortexData.push({
-        angle,
-        radiusStart,
-        radiusTarget,
-        height,
-        speed: 1.0 + Math.random() * 2.0,
-        life: 1.0,
-        vx: 0,
-        vy: 0,
-        vz: 0
-      });
-    }
-
-    vortexGeo.setAttribute('position', new THREE.BufferAttribute(vortexPositions, 3));
-    vortexGeo.setAttribute('color', new THREE.BufferAttribute(vortexColors, 3));
-    vortexGeo.setAttribute('aSize', new THREE.BufferAttribute(vortexSizes, 1));
-    vortexGeo.setAttribute('aLife', new THREE.BufferAttribute(vortexLifes, 1));
-
-    const vortexMat = new THREE.ShaderMaterial({
-      uniforms: this.vortexUniforms,
-      vertexShader: vortexVertexShader,
-      fragmentShader: vortexFragmentShader,
-      blending: THREE.AdditiveBlending,
-      transparent: true,
-      depthWrite: false,
-      vertexColors: true
-    });
-
-    this.vortexPoints = new THREE.Points(vortexGeo, vortexMat);
-    this.scene.add(this.vortexPoints);
-
-    // 6. Aura Particles setup
-    const auraGeo = new THREE.BufferGeometry();
-    const auraPositions = new Float32Array(this.auraCount * 3);
-    const auraColors = new Float32Array(this.auraCount * 3);
-    const auraSizes = new Float32Array(this.auraCount);
-    const auraLifes = new Float32Array(this.auraCount);
-    this.auraData = [];
-
-    for (let i = 0; i < this.auraCount; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const radius = Math.random() * 5.5;
-      const yVal = -20 + Math.random() * 40;
-
-      const x = Math.cos(angle) * radius;
-      const z = Math.sin(angle) * radius;
-
-      auraPositions[i * 3] = x;
-      auraPositions[i * 3 + 1] = yVal;
-      auraPositions[i * 3 + 2] = z;
-
-      if (Math.random() < 0.5) {
-        auraColors[i * 3] = 1.0;     // R
-        auraColors[i * 3 + 1] = 0.70; // G
-        auraColors[i * 3 + 2] = 0.0;  // B
-      } else {
-        auraColors[i * 3] = 0.95;
-        auraColors[i * 3 + 1] = 0.15;
-        auraColors[i * 3 + 2] = 0.0;
-      }
-
-      auraSizes[i] = 1.5 + Math.random() * 2.8;
-      auraLifes[i] = 1.0;
-
-      this.auraData.push({
-        angle,
-        radius,
-        yVal,
-        speed: 1.5 + Math.random() * 2.0,
-        wobbleSpeed: 3 + Math.random() * 5,
-        life: 1.0,
-        vx: 0,
-        vy: 0,
-        vz: 0
-      });
-    }
-
-    auraGeo.setAttribute('position', new THREE.BufferAttribute(auraPositions, 3));
-    auraGeo.setAttribute('color', new THREE.BufferAttribute(auraColors, 3));
-    auraGeo.setAttribute('aSize', new THREE.BufferAttribute(auraSizes, 1));
-    auraGeo.setAttribute('aLife', new THREE.BufferAttribute(auraLifes, 1));
-
-    const auraMat = new THREE.ShaderMaterial({
-      uniforms: this.auraUniforms,
+    const innerGeo = new THREE.CylinderGeometry(2.2, 3.2, 45, 16, 24, true);
+    const innerMat = new THREE.ShaderMaterial({
       vertexShader: auraVertexShader,
       fragmentShader: auraFragmentShader,
+      uniforms: this.innerUniforms,
       blending: THREE.AdditiveBlending,
       transparent: true,
       depthWrite: false,
-      vertexColors: true
+      side: THREE.DoubleSide
     });
 
-    this.auraPoints = new THREE.Points(auraGeo, auraMat);
-    this.scene.add(this.auraPoints);
+    this.innerCylinder = new THREE.Mesh(innerGeo, innerMat);
+    this.scene.add(this.innerCylinder);
+
+    // 6. Build Outer Golden-Red Volumetric Column (Wrapper Layer)
+    this.outerUniforms = {
+      uTime: { value: 0.0 },
+      uColorInner: { value: new THREE.Color(0xffcc00) }, // solar gold
+      uColorOuter: { value: new THREE.Color(0xff2200) }, // crimson fire
+      uAlpha: { value: 0.0 }
+    };
+
+    const outerGeo = new THREE.CylinderGeometry(3.5, 4.8, 48, 16, 24, true);
+    const outerMat = new THREE.ShaderMaterial({
+      vertexShader: auraVertexShader,
+      fragmentShader: auraFragmentShader,
+      uniforms: this.outerUniforms,
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+
+    this.outerCylinder = new THREE.Mesh(outerGeo, outerMat);
+    this.scene.add(this.outerCylinder);
+
+    // 7. Helical Energy Ribbons (Thick 3D energy tubes wrapping the core)
+    this.ribbonUniforms = {
+      uTime: { value: 0.0 },
+      uColor: { value: new THREE.Color(0x00f2fe) }
+    };
+
+    const ribbonMat = new THREE.ShaderMaterial({
+      uniforms: this.ribbonUniforms,
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform vec3 uColor;
+        varying vec2 vUv;
+        void main() {
+          // scrolling hot pulses along the tube curves
+          float pulse = sin(vUv.x * 24.0 - uTime * 18.0) * 0.5 + 0.5;
+          pulse = pow(pulse, 4.5); // sharpen pulse shapes
+          vec3 col = mix(uColor, vec3(1.0, 1.0, 1.0), pulse * 0.6);
+          gl_FragColor = vec4(col * (1.8 + pulse * 2.2), (0.15 + pulse * 0.85) * 0.9);
+        }
+      `,
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      depthWrite: false
+    });
+
+    // Create 3 offset helical tubes
+    const winds = 2.5;
+    const tubeHeight = 45;
+    
+    for (let r = 0; r < 3; r++) {
+      const points = [];
+      const angleOffset = (r / 3) * Math.PI * 2;
+      const radius = 6.2 + r * 0.5;
+      
+      for (let i = 0; i <= 80; i++) {
+        const t = i / 80;
+        const angle = t * Math.PI * 2 * winds + angleOffset;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const y = -22 + t * tubeHeight;
+        points.push(new THREE.Vector3(x, y, z));
+      }
+
+      const curve = new THREE.CatmullRomCurve3(points);
+      const tubeGeo = new THREE.TubeGeometry(curve, 80, 0.45, 8, false);
+      const tubeMesh = new THREE.Mesh(tubeGeo, ribbonMat);
+      
+      // Hide initially (scale down to 0)
+      tubeMesh.scale.set(0.01, 0.01, 0.01);
+      this.scene.add(tubeMesh);
+      this.helicalTubes.push(tubeMesh);
+    }
+
+    // 8. Volumetric God-Ray Light Shaft Cones
+    const rayMat = new THREE.ShaderMaterial({
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec2 vUv;
+        void main() {
+          float verticalFade = sin(vUv.y * 3.14159);
+          float horizontalFade = 1.0 - abs(vUv.x - 0.5) * 2.0;
+          float alpha = pow(verticalFade, 1.5) * pow(horizontalFade, 2.0) * 0.22;
+          gl_FragColor = vec4(vec3(0.0, 0.95, 1.0) * 1.5, alpha);
+        }
+      `,
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+
+    for (let i = 0; i < 3; i++) {
+      const coneGeo = new THREE.ConeGeometry(5 + i * 2, 50, 8, 4, true);
+      const coneMesh = new THREE.Mesh(coneGeo, rayMat);
+      coneMesh.position.set((Math.random() - 0.5) * 4, 10, (Math.random() - 0.5) * 4);
+      coneMesh.rotation.y = (Math.random() - 0.5) * 0.15;
+      coneMesh.rotation.z = (Math.random() - 0.5) * 0.15;
+      coneMesh.scale.set(0.01, 0.01, 0.01);
+      this.scene.add(coneMesh);
+      this.lightShafts.push(coneMesh);
+    }
+
+    // 9. Floating Embers for Settle Phase (Drifting cooling cinders)
+    const emberGeo = new THREE.BufferGeometry();
+    const emberPositions = new Float32Array(this.emberCount * 3);
+    const emberColors = new Float32Array(this.emberCount * 3);
+    
+    // Create soft circular glow texture generated on canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    grad.addColorStop(0.3, 'rgba(255, 150, 0, 0.85)');
+    grad.addColorStop(0.7, 'rgba(255, 50, 0, 0.25)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 32, 32);
+    const emberTex = new THREE.CanvasTexture(canvas);
+
+    for (let i = 0; i < this.emberCount; i++) {
+      const x = (Math.random() - 0.5) * 40;
+      const y = -25 + Math.random() * 50;
+      const z = (Math.random() - 0.5) * 40;
+
+      emberPositions[i * 3] = x;
+      emberPositions[i * 3 + 1] = y;
+      emberPositions[i * 3 + 2] = z;
+
+      emberColors[i * 3] = 1.0;
+      emberColors[i * 3 + 1] = 0.4 + Math.random() * 0.5;
+      emberColors[i * 3 + 2] = 0.0;
+
+      this.emberData.push({
+        vx: (Math.random() - 0.5) * 3,
+        vy: 1.0 + Math.random() * 2.0, // rise slowly
+        vz: (Math.random() - 0.5) * 3,
+        wobble: Math.random() * 100
+      });
+    }
+
+    emberGeo.setAttribute('position', new THREE.BufferAttribute(emberPositions, 3));
+    emberGeo.setAttribute('color', new THREE.BufferAttribute(emberColors, 3));
+
+    const emberMat = new THREE.PointsMaterial({
+      size: 1.2,
+      map: emberTex,
+      vertexColors: true,
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      depthWrite: false
+    });
+
+    this.emberPoints = new THREE.Points(emberGeo, emberMat);
+    this.emberPoints.scale.set(0.01, 0.01, 0.01);
+    this.scene.add(this.emberPoints);
+
+    // 10. Goku Muscular Mannequin Silhouette setup
+    this.gokuMesh = this.createGokuMannequin();
+    this.scene.add(this.gokuMesh);
+
+    // 11. Post-processing pipeline setup
+    this.composer = new THREE.EffectComposer(this.renderer);
+    const renderPass = new THREE.RenderPass(this.scene, this.camera);
+    this.composer.addPass(renderPass);
+
+    // UnrealBloomPass parameters: resolution, strength, radius, threshold
+    this.bloomPass = new THREE.UnrealBloomPass(
+      new THREE.Vector2(width, height),
+      1.65, // bloom strength (high radiance aura bloom)
+      0.45, // bloom radius
+      0.15  // bloom threshold
+    );
+    this.composer.addPass(this.bloomPass);
   },
 
   resize() {
@@ -5641,19 +5874,23 @@ const CinematicIntro = {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
+    if (this.composer) {
+      this.composer.setSize(width, height);
+    }
   },
 
   triggerLightning() {
-    const startX = (Math.random() - 0.5) * 80;
-    const startY = 50;
-    const startZ = (Math.random() - 0.5) * 80;
+    // Generate thick 3D Tube-based lightning curves to look heavy and animated (like Goku anime sheets)
+    const startX = (Math.random() - 0.5) * 60;
+    const startY = 40;
+    const startZ = (Math.random() - 0.5) * 60;
 
-    const endX = (Math.random() - 0.5) * 4;
-    const endY = (Math.random() - 0.5) * 10;
-    const endZ = (Math.random() - 0.5) * 4;
+    const endX = (Math.random() - 0.5) * 3;
+    const endY = -10 + Math.random() * 10;
+    const endZ = (Math.random() - 0.5) * 3;
 
     const points = [];
-    const segments = 8;
+    const segments = 6;
     let currX = startX;
     let currY = startY;
     let currZ = startZ;
@@ -5665,28 +5902,30 @@ const CinematicIntro = {
       const ty = startY + (endY - startY) * t;
       const tz = startZ + (endZ - startZ) * t;
 
-      currX = tx + (Math.random() - 0.5) * 5;
-      currY = ty + (Math.random() - 0.5) * 5;
-      currZ = tz + (Math.random() - 0.5) * 5;
+      currX = tx + (Math.random() - 0.5) * 9;
+      currY = ty + (Math.random() - 0.5) * 4;
+      currZ = tz + (Math.random() - 0.5) * 9;
       points.push(new THREE.Vector3(currX, currY, currZ));
     }
     points.push(new THREE.Vector3(endX, endY, endZ));
 
-    const geom = new THREE.BufferGeometry().setFromPoints(points);
-    const mat = new THREE.LineBasicMaterial({
-      color: 0x00f2fe,
+    const curve = new THREE.CatmullRomCurve3(points);
+    const tubeGeo = new THREE.TubeGeometry(curve, 24, 0.75, 4, false);
+    
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xebfaff,
       transparent: true,
       opacity: 1.0,
-      linewidth: 2
+      side: THREE.DoubleSide
     });
 
-    const line = new THREE.Line(geom, mat);
-    this.scene.add(line);
+    const mesh = new THREE.Mesh(tubeGeo, mat);
+    this.scene.add(mesh);
 
-    this.lightningLines.push({
-      mesh: line,
+    this.lightningMeshes.push({
+      mesh: mesh,
       alpha: 1.0,
-      decay: 0.1 + Math.random() * 0.12
+      decay: 0.15 + Math.random() * 0.15
     });
   },
 
@@ -5697,218 +5936,189 @@ const CinematicIntro = {
     const elapsed = (now - this.phaseTimer) / 1000;
     const dt = 0.016; // approx time delta
 
-    // Update uniforms
-    if (this.vortexUniforms) this.vortexUniforms.uTime.value = elapsed;
-    if (this.auraUniforms) this.auraUniforms.uTime.value = elapsed;
+    // Update shaders uniforms
+    if (this.innerUniforms) this.innerUniforms.uTime.value = elapsed;
+    if (this.outerUniforms) this.outerUniforms.uTime.value = elapsed;
+    if (this.ribbonUniforms) this.ribbonUniforms.uTime.value = elapsed;
 
-    // Camera & Animation Phases logic
     if (this.phase === 'converge') {
-      // 1. Converging swirl phase (0s - 4.5s)
-      this.shakeIntensity = Math.min(0.5, elapsed * 0.12);
+      // 1. Swirling convergence (0s - 4.5s)
+      this.shakeIntensity = Math.min(0.6, elapsed * 0.15);
 
-      // Camera orbital path
-      this.camera.position.x = Math.sin(now * 0.0006) * 55;
-      this.camera.position.z = Math.cos(now * 0.0006) * 55;
-      this.camera.position.y = 8 + Math.sin(now * 0.0003) * 5;
-      this.camera.lookAt(0, 0, 0);
+      // Camera rotates slowly and zooms in closer
+      const zoomFactor = Math.max(30, 48 - elapsed * 4);
+      this.camera.position.x = Math.sin(now * 0.0006) * zoomFactor;
+      this.camera.position.z = Math.cos(now * 0.0006) * zoomFactor;
+      this.camera.position.y = 6 + Math.sin(now * 0.0003) * 4;
+      this.camera.lookAt(0, 3, 0);
 
-      // Swirling particles animation
-      const factor = Math.max(0, 1 - elapsed / 4.5);
-      const vortexPos = this.vortexPoints.geometry.attributes.position;
-      const vortexLifeAttr = this.vortexPoints.geometry.attributes.aLife;
-      
-      for (let i = 0; i < this.vortexCount; i++) {
-        const data = this.vortexData[i];
-        data.angle += 0.02 * data.speed;
-        
-        const currentRad = factor * data.radiusStart + (1 - factor) * data.radiusTarget;
-        const x = Math.cos(data.angle) * currentRad;
-        const z = Math.sin(data.angle) * currentRad;
-        const y = data.height + Math.sin(data.angle * 1.5) * 3;
-        
-        vortexPos.setXYZ(i, x, y, z);
-        vortexLifeAttr.setX(i, 1.0);
+      // Fade in the columns and ribbons
+      const alphaVal = Math.min(1.0, elapsed / 3.0);
+      if (this.innerUniforms) this.innerUniforms.uAlpha.value = alphaVal;
+      if (this.outerUniforms) this.outerUniforms.uAlpha.value = alphaVal * 0.85;
+
+      // Scale up Goku and ribbons/rays
+      const scaleVal = Math.min(1.0, elapsed / 3.5);
+      this.gokuMesh.scale.set(0.65 * scaleVal, 0.65 * scaleVal, 0.65 * scaleVal);
+      if (this.gokuUniforms) {
+        this.gokuUniforms.uOpacity.value = 0.85 * scaleVal;
       }
-      vortexPos.needsUpdate = true;
-      vortexLifeAttr.needsUpdate = true;
 
-      // Aura flame column rises slowly
-      const auraPos = this.auraPoints.geometry.attributes.position;
-      const auraLifeAttr = this.auraPoints.geometry.attributes.aLife;
-      for (let i = 0; i < this.auraCount; i++) {
-        const data = this.auraData[i];
-        data.yVal += 0.08 * data.speed;
-        if (data.yVal > 25) data.yVal = -20;
-        
-        const wobble = Math.sin(now * 0.001 * data.wobbleSpeed) * 0.25;
-        const x = Math.cos(data.angle) * data.radius + wobble;
-        const z = Math.sin(data.angle) * data.radius + wobble;
-        
-        auraPos.setXYZ(i, x, data.yVal, z);
-        
-        const lifeRatio = 1.0 - Math.min(1.0, Math.max(0.0, (data.yVal - (-20)) / 45.0));
-        auraLifeAttr.setX(i, lifeRatio);
+      this.helicalTubes.forEach(t => t.scale.set(scaleVal, scaleVal, scaleVal));
+      this.lightShafts.forEach((s, idx) => {
+        s.scale.set(scaleVal, scaleVal, scaleVal);
+        s.rotation.y += 0.004 * (idx + 1);
+        s.rotation.z = Math.sin(now * 0.001 + idx) * 0.12;
+      });
+
+      // Slowly float embers up
+      this.emberPoints.scale.set(scaleVal, scaleVal, scaleVal);
+      const emberPos = this.emberPoints.geometry.attributes.position;
+      for (let i = 0; i < this.emberCount; i++) {
+        const data = this.emberData[i];
+        let y = emberPos.getY(i) + data.vy * 0.05;
+        if (y > 25) y = -25;
+        emberPos.setY(i, y);
       }
-      auraPos.needsUpdate = true;
-      auraLifeAttr.needsUpdate = true;
+      emberPos.needsUpdate = true;
 
-      if (Math.random() < 0.04 * elapsed) {
+      // Slow lightning build up
+      if (Math.random() < 0.045 * elapsed) {
         this.triggerLightning();
       }
 
       if (elapsed >= 4.5) {
         this.phase = 'tornado';
         this.phaseTimer = now;
-        this.shakeIntensity = 3.5;
+        this.shakeIntensity = 4.2;
         this.triggerLightning();
       }
     } else if (this.phase === 'tornado') {
       // 2. High-energy fire tornado column (4.5s - 6.5s)
-      this.shakeIntensity = 3.5;
+      this.shakeIntensity = 4.2;
 
-      // Camera shakes heavily
+      // Extreme camera vibrations (like Goku Daima aura shake)
       const dx = (Math.random() - 0.5) * this.shakeIntensity;
       const dy = (Math.random() - 0.5) * this.shakeIntensity;
       const dz = (Math.random() - 0.5) * this.shakeIntensity;
       
-      this.camera.position.x = Math.sin(now * 0.0012) * 45 + dx;
-      this.camera.position.z = Math.cos(now * 0.0012) * 45 + dz;
-      this.camera.position.y = 5 + dy;
-      this.camera.lookAt(0, 5, 0);
+      this.camera.position.x = Math.sin(now * 0.0016) * 30 + dx;
+      this.camera.position.z = Math.cos(now * 0.0016) * 30 + dz;
+      this.camera.position.y = 4 + dy;
+      this.camera.lookAt(0, 6, 0);
 
-      // Fast rising fire tornado animation
-      const auraPos = this.auraPoints.geometry.attributes.position;
-      const auraLifeAttr = this.auraPoints.geometry.attributes.aLife;
-      for (let i = 0; i < this.auraCount; i++) {
-        const data = this.auraData[i];
-        data.yVal += 0.32 * data.speed; // rises extremely fast
-        data.angle += 0.06; // rapid spin
-        
-        if (data.yVal > 35) {
-          data.yVal = -20;
+      // Increase scale slightly to look explosive
+      const scaleFactor = 1.0 + Math.sin(now * 0.06) * 0.08;
+      this.innerCylinder.scale.set(scaleFactor, 1, scaleFactor);
+      this.outerCylinder.scale.set(scaleFactor, 1, scaleFactor);
+
+      // Spin and flash Goku's mannequin
+      const flashIntensity = 0.7 + Math.sin(now * 0.08) * 0.3;
+      this.gokuMesh.scale.set(0.65 * scaleFactor, 0.65, 0.65 * scaleFactor);
+      if (this.gokuUniforms) {
+        this.gokuUniforms.uOpacity.value = 0.85 * flashIntensity;
+        // flash golden Saiyan color vs white/cyan base
+        if (Math.sin(now * 0.05) > 0) {
+          this.gokuUniforms.uColor.value.setHex(0xffcc00); // Super-Saiyan Gold
+        } else {
+          this.gokuUniforms.uColor.value.setHex(0xebfaff); // White-Cyan
         }
-
-        const x = Math.cos(data.angle) * (data.radius * 0.8);
-        const z = Math.sin(data.angle) * (data.radius * 0.8);
-        
-        auraPos.setXYZ(i, x, data.yVal, z);
-        const lifeRatio = 1.0 - Math.min(1.0, Math.max(0.0, (data.yVal - (-20)) / 55.0));
-        auraLifeAttr.setX(i, lifeRatio);
       }
-      auraPos.needsUpdate = true;
-      auraLifeAttr.needsUpdate = true;
 
-      // Vortex wraps tornado tightly
-      const vortexPos = this.vortexPoints.geometry.attributes.position;
-      const vortexLifeAttr = this.vortexPoints.geometry.attributes.aLife;
-      for (let i = 0; i < this.vortexCount; i++) {
-        const data = this.vortexData[i];
-        data.angle += 0.08 * data.speed;
-        data.height += 0.18;
-        if (data.height > 30) data.height = -15;
+      // Rapidly spin the helical ribbons
+      this.helicalTubes.forEach((t, idx) => {
+        t.rotation.y += 0.12 * (idx + 1);
+        t.scale.set(scaleFactor * 1.1, 1, scaleFactor * 1.1);
+      });
 
-        const x = Math.cos(data.angle) * (data.radiusTarget * 0.9);
-        const z = Math.sin(data.angle) * (data.radiusTarget * 0.9);
-        
-        vortexPos.setXYZ(i, x, data.height, z);
-        vortexLifeAttr.setX(i, 1.0);
+      // Animate embers rapidly flying upwards
+      const emberPos = this.emberPoints.geometry.attributes.position;
+      for (let i = 0; i < this.emberCount; i++) {
+        const data = this.emberData[i];
+        let y = emberPos.getY(i) + data.vy * 0.35; // shoot up fast
+        if (y > 30) y = -25;
+        emberPos.setY(i, y);
       }
-      vortexPos.needsUpdate = true;
-      vortexLifeAttr.needsUpdate = true;
+      emberPos.needsUpdate = true;
 
-      if (Math.random() < 0.32) {
+      // Heavy crackling lightning sheets
+      if (Math.random() < 0.38) {
         this.triggerLightning();
       }
 
       if (elapsed >= 2.0) {
         this.phase = 'explode';
         this.phaseTimer = now;
-        this.shakeIntensity = 7.0;
+        this.shakeIntensity = 8.5;
         this.flashAlpha = 1.0;
         
-        // Fullscreen flash display
         if (this.flashOverlay) {
           this.flashOverlay.style.opacity = '1.0';
         }
 
-        // Initialize radial explosion velocities
-        // Vortex explosion physics
-        for (let i = 0; i < this.vortexCount; i++) {
-          const data = this.vortexData[i];
+        // Initialize radial explosion vectors for embers
+        for (let i = 0; i < this.emberCount; i++) {
+          const data = this.emberData[i];
           const theta = Math.random() * Math.PI * 2;
           const phi = Math.acos(Math.random() * 2 - 1);
-          const force = 40 + Math.random() * 70;
+          const force = 35 + Math.random() * 65;
           
           data.vx = Math.sin(phi) * Math.cos(theta) * force;
           data.vy = Math.cos(phi) * force;
           data.vz = Math.sin(phi) * Math.sin(theta) * force;
-          data.life = 1.0;
-        }
-
-        // Aura explosion physics
-        for (let i = 0; i < this.auraCount; i++) {
-          const data = this.auraData[i];
-          const theta = Math.random() * Math.PI * 2;
-          const phi = Math.acos(Math.random() * 2 - 1);
-          const force = 30 + Math.random() * 60;
-          
-          data.vx = Math.sin(phi) * Math.cos(theta) * force;
-          data.vy = Math.cos(phi) * force;
-          data.vz = Math.sin(phi) * Math.sin(theta) * force;
-          data.life = 1.0;
         }
       }
     } else if (this.phase === 'explode') {
       // 3. Supernova explosion blast (6.5s - 7.5s)
-      this.shakeIntensity *= 0.88;
-      this.flashAlpha *= 0.84;
+      this.shakeIntensity *= 0.86;
+      this.flashAlpha *= 0.82;
       
       if (this.flashOverlay) {
         this.flashOverlay.style.opacity = this.flashAlpha.toString();
       }
 
-      // Camera slowly retracts during blast
-      this.camera.position.set(0, 0, 50 + elapsed * 10);
+      this.camera.position.set(0, 0, 40 + elapsed * 15);
       this.camera.lookAt(0, 0, 0);
 
-      // Animate explosion radial velocities
-      const vortexPos = this.vortexPoints.geometry.attributes.position;
-      const vortexLifeAttr = this.vortexPoints.geometry.attributes.aLife;
-      for (let i = 0; i < this.vortexCount; i++) {
-        const data = this.vortexData[i];
-        let x = vortexPos.getX(i) + data.vx * dt;
-        let y = vortexPos.getY(i) + data.vy * dt;
-        let z = vortexPos.getZ(i) + data.vz * dt;
-        
-        data.vx *= 0.94;
-        data.vy *= 0.94;
-        data.vz *= 0.94;
-        data.life -= 0.016;
-        
-        vortexPos.setXYZ(i, x, y, z);
-        vortexLifeAttr.setX(i, Math.max(0.0, data.life));
-      }
-      vortexPos.needsUpdate = true;
-      vortexLifeAttr.needsUpdate = true;
+      // Expand cylinders rapidly and fade out
+      const expScale = 1.0 + elapsed * 8.0;
+      this.innerCylinder.scale.set(expScale, 1.0, expScale);
+      this.outerCylinder.scale.set(expScale, 1.0, expScale);
 
-      const auraPos = this.auraPoints.geometry.attributes.position;
-      const auraLifeAttr = this.auraPoints.geometry.attributes.aLife;
-      for (let i = 0; i < this.auraCount; i++) {
-        const data = this.auraData[i];
-        let x = auraPos.getX(i) + data.vx * dt;
-        let y = auraPos.getY(i) + data.vy * dt;
-        let z = auraPos.getZ(i) + data.vz * dt;
-        
-        data.vx *= 0.94;
-        data.vy *= 0.94;
-        data.vz *= 0.94;
-        data.life -= 0.018;
-        
-        auraPos.setXYZ(i, x, y, z);
-        auraLifeAttr.setX(i, Math.max(0.0, data.life));
+      // Expand and fade Goku mannequin
+      const gokuExpScale = 0.65 * (1.0 + elapsed * 8.0);
+      this.gokuMesh.scale.set(gokuExpScale, gokuExpScale, gokuExpScale);
+      if (this.gokuUniforms) {
+        this.gokuUniforms.uOpacity.value = Math.max(0.0, 0.85 * (1.0 - elapsed / 1.0));
       }
-      auraPos.needsUpdate = true;
-      auraLifeAttr.needsUpdate = true;
+
+      const alphaMult = Math.max(0.0, 1.0 - elapsed / 1.0);
+      if (this.innerUniforms) this.innerUniforms.uAlpha.value = alphaMult;
+      if (this.outerUniforms) this.outerUniforms.uAlpha.value = alphaMult * 0.85;
+
+      // Expand ribbons out and fade
+      this.helicalTubes.forEach((t) => {
+        t.scale.set(expScale * 1.2, 1.0, expScale * 1.2);
+      });
+
+      // Hide god rays instantly on explosion
+      this.lightShafts.forEach((s) => s.scale.set(0.01, 0.01, 0.01));
+
+      // Blast embers radially
+      const emberPos = this.emberPoints.geometry.attributes.position;
+      for (let i = 0; i < this.emberCount; i++) {
+        const data = this.emberData[i];
+        let x = emberPos.getX(i) + data.vx * dt;
+        let y = emberPos.getY(i) + data.vy * dt;
+        let z = emberPos.getZ(i) + data.vz * dt;
+        
+        data.vx *= 0.92;
+        data.vy *= 0.92;
+        data.vz *= 0.92;
+        
+        emberPos.setXYZ(i, x, y, z);
+      }
+      emberPos.needsUpdate = true;
 
       if (elapsed >= 1.0) {
         this.phase = 'settle';
@@ -5926,50 +6136,38 @@ const CinematicIntro = {
         this.flashOverlay.style.opacity = '0';
       }
 
-      this.camera.position.set(0, 0, 60);
+      this.camera.position.set(0, 0, 55);
       this.camera.lookAt(0, 0, 0);
 
-      // Particles float slowly downwards/sideways like stardust
-      const vortexPos = this.vortexPoints.geometry.attributes.position;
-      const vortexLifeAttr = this.vortexPoints.geometry.attributes.aLife;
-      for (let i = 0; i < this.vortexCount; i++) {
-        let x = vortexPos.getX(i) + Math.sin(now * 0.0005 + i) * 0.015;
-        let y = vortexPos.getY(i) - 0.02; // slow fall
-        let z = vortexPos.getZ(i) + Math.cos(now * 0.0005 + i) * 0.015;
-        vortexPos.setXYZ(i, x, y, z);
-        
-        // fade slowly
-        const currentLife = vortexLifeAttr.getX(i);
-        vortexLifeAttr.setX(i, Math.max(0.12, currentLife - 0.005));
-      }
-      vortexPos.needsUpdate = true;
-      vortexLifeAttr.needsUpdate = true;
+      // Hide everything except embers
+      this.innerCylinder.scale.set(0.01, 0.01, 0.01);
+      this.outerCylinder.scale.set(0.01, 0.01, 0.01);
+      this.gokuMesh.scale.set(0.01, 0.01, 0.01);
+      this.helicalTubes.forEach((t) => t.scale.set(0.01, 0.01, 0.01));
 
-      const auraPos = this.auraPoints.geometry.attributes.position;
-      const auraLifeAttr = this.auraPoints.geometry.attributes.aLife;
-      for (let i = 0; i < this.auraCount; i++) {
-        let x = auraPos.getX(i) + Math.sin(now * 0.0005 + i) * 0.015;
-        let y = auraPos.getY(i) - 0.015; // slow fall
-        let z = auraPos.getZ(i) + Math.cos(now * 0.0005 + i) * 0.015;
-        auraPos.setXYZ(i, x, y, z);
-        
-        const currentLife = auraLifeAttr.getX(i);
-        auraLifeAttr.setX(i, Math.max(0.12, currentLife - 0.005));
+      // Embers float slowly down like stardust
+      const emberPos = this.emberPoints.geometry.attributes.position;
+      for (let i = 0; i < this.emberCount; i++) {
+        const data = this.emberData[i];
+        data.wobble += 0.04;
+        let x = emberPos.getX(i) + Math.sin(data.wobble) * 0.03;
+        let y = emberPos.getY(i) - 0.035; // slow drift fall
+        let z = emberPos.getZ(i) + Math.cos(data.wobble) * 0.03;
+        emberPos.setXYZ(i, x, y, z);
       }
-      auraPos.needsUpdate = true;
-      auraLifeAttr.needsUpdate = true;
+      emberPos.needsUpdate = true;
     }
 
-    // Update lightning opacity
-    this.lightningLines.forEach(l => {
+    // Animate lightning sheets
+    this.lightningMeshes.forEach(l => {
       l.alpha -= l.decay;
       if (l.mesh.material) {
         l.mesh.material.opacity = l.alpha;
       }
     });
 
-    // Remove expired lightnings
-    this.lightningLines = this.lightningLines.filter(l => {
+    // Clean up expired lightnings
+    this.lightningMeshes = this.lightningMeshes.filter(l => {
       if (l.alpha <= 0.01) {
         this.scene.remove(l.mesh);
         l.mesh.geometry.dispose();
@@ -5979,9 +6177,9 @@ const CinematicIntro = {
       return true;
     });
 
-    // Render WebGL frame
-    if (this.renderer && this.scene && this.camera) {
-      this.renderer.render(this.scene, this.camera);
+    // Render Frame via Post-processing composer
+    if (this.composer && this.scene && this.camera) {
+      this.composer.render();
     }
 
     this.animationFrameId = requestAnimationFrame(() => this.loop());
@@ -5995,25 +6193,50 @@ const CinematicIntro = {
       cancelAnimationFrame(this.animationFrameId);
     }
 
-    // Clean up WebGL resources to prevent memory leaks
+    // Resource deallocation
     try {
-      if (this.vortexPoints) {
-        this.scene.remove(this.vortexPoints);
-        this.vortexPoints.geometry.dispose();
-        if (this.vortexPoints.material) this.vortexPoints.material.dispose();
+      if (this.innerCylinder) {
+        this.scene.remove(this.innerCylinder);
+        this.innerCylinder.geometry.dispose();
+        if (this.innerCylinder.material) this.innerCylinder.material.dispose();
       }
-      if (this.auraPoints) {
-        this.scene.remove(this.auraPoints);
-        this.auraPoints.geometry.dispose();
-        if (this.auraPoints.material) this.auraPoints.material.dispose();
+      if (this.outerCylinder) {
+        this.scene.remove(this.outerCylinder);
+        this.outerCylinder.geometry.dispose();
+        if (this.outerCylinder.material) this.outerCylinder.material.dispose();
       }
-      this.lightningLines.forEach(l => {
+      if (this.gokuMesh) {
+        this.scene.remove(this.gokuMesh);
+        this.gokuMesh.traverse(child => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) child.material.dispose();
+        });
+      }
+      this.helicalTubes.forEach(t => {
+        this.scene.remove(t);
+        t.geometry.dispose();
+        if (t.material) t.material.dispose();
+      });
+      this.lightShafts.forEach(s => {
+        this.scene.remove(s);
+        s.geometry.dispose();
+        if (s.material) s.material.dispose();
+      });
+      this.lightningMeshes.forEach(l => {
         this.scene.remove(l.mesh);
         l.mesh.geometry.dispose();
         if (l.mesh.material) l.mesh.material.dispose();
       });
-      if (this.glowTexture) {
-        this.glowTexture.dispose();
+      if (this.emberPoints) {
+        this.scene.remove(this.emberPoints);
+        this.emberPoints.geometry.dispose();
+        if (this.emberPoints.material) this.emberPoints.material.dispose();
+      }
+      if (this.composer) {
+        this.composer.passes.forEach(pass => {
+          if (pass.dispose) pass.dispose();
+        });
+        this.composer = null;
       }
       if (this.renderer) {
         this.renderer.dispose();
