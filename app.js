@@ -5299,6 +5299,10 @@ const CinematicIntro = {
   camera: null,
   glowTexture: null,
 
+  // Shaders Uniforms
+  vortexUniforms: null,
+  auraUniforms: null,
+
   // Particle systems
   vortexPoints: null,
   vortexData: [],
@@ -5387,24 +5391,6 @@ const CinematicIntro = {
 
   handleResize: null,
 
-  createGlowTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 64;
-    canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-    
-    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
-    grad.addColorStop(0.2, 'rgba(255, 255, 255, 0.8)');
-    grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.25)');
-    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 64, 64);
-    
-    return new THREE.CanvasTexture(canvas);
-  },
-
   initWebGL() {
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -5425,15 +5411,103 @@ const CinematicIntro = {
       powerPreference: 'high-performance'
     });
     this.renderer.setSize(width, height);
-    const dpr = Math.min(window.devicePixelRatio, 2); // Cap at 2 for performance on 4K monitors
+    const dpr = Math.min(window.devicePixelRatio, 2);
     this.renderer.setPixelRatio(dpr);
 
-    this.glowTexture = this.createGlowTexture();
+    // 4. Uniforms definitions
+    this.vortexUniforms = {
+      uTime: { value: 0.0 }
+    };
+    this.auraUniforms = {
+      uTime: { value: 0.0 }
+    };
 
-    // 4. Vortex Particles (Blue plasma swirling vortex)
+    // Shaders GLSL definitions
+    const vortexVertexShader = `
+      uniform float uTime;
+      attribute float aSize;
+      attribute float aLife;
+      varying float vLife;
+      varying vec3 vColor;
+      void main() {
+        vLife = aLife;
+        vColor = color;
+        vec3 pos = position;
+        // high frequency vibration/crackle for plasma
+        pos.x += sin(pos.y * 1.5 + uTime * 12.0) * 0.12;
+        pos.z += cos(pos.y * 1.5 + uTime * 12.0) * 0.12;
+        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        gl_PointSize = aSize * (350.0 / -mvPosition.z);
+      }
+    `;
+
+    const vortexFragmentShader = `
+      uniform float uTime;
+      varying float vLife;
+      varying vec3 vColor;
+      void main() {
+        vec2 pc = gl_PointCoord - vec2(0.5);
+        float dist = length(pc);
+        if (dist > 0.5) discard;
+        // crackling shape boundary distortion
+        float noise = sin(pc.x * 20.0 + uTime * 25.0) * cos(pc.y * 20.0 - uTime * 20.0) * 0.06;
+        float boundary = 0.5 - abs(noise);
+        if (dist > boundary) discard;
+        float intensity = pow(1.0 - dist / boundary, 1.8);
+        vec3 finalColor = mix(vColor, vec3(1.0, 1.0, 1.0), intensity * 0.4);
+        gl_FragColor = vec4(finalColor * 1.6, intensity * vLife * 0.9);
+      }
+    `;
+
+    const auraVertexShader = `
+      uniform float uTime;
+      attribute float aSize;
+      attribute float aLife;
+      varying float vLife;
+      varying vec3 vColor;
+      void main() {
+        vLife = aLife;
+        vColor = color;
+        vec3 pos = position;
+        // organic flame swaying physics
+        pos.x += sin(pos.y * 0.4 + uTime * 2.5) * 0.35;
+        pos.z += cos(pos.y * 0.4 + uTime * 2.5) * 0.35;
+        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        gl_PointSize = aSize * (1.0 - (1.0 - vLife) * 0.5) * (300.0 / -mvPosition.z);
+      }
+    `;
+
+    const auraFragmentShader = `
+      uniform float uTime;
+      varying float vLife;
+      varying vec3 vColor;
+      void main() {
+        vec2 pc = gl_PointCoord - vec2(0.5);
+        float dist = length(pc);
+        if (dist > 0.5) discard;
+        // flickering fire tongue boundary distortion
+        float angle = atan(pc.y, pc.x);
+        float flicker = sin(angle * 5.0 + uTime * 15.0) * 0.08;
+        float boundary = 0.5 - flicker;
+        if (dist > boundary) discard;
+        float intensity = pow(1.0 - dist / boundary, 2.2);
+        vec3 finalColor = vColor;
+        if (vLife < 0.45) {
+          finalColor = mix(vec3(0.85, 0.0, 0.0), finalColor, vLife / 0.45);
+        }
+        float alpha = intensity * vLife * 0.85;
+        gl_FragColor = vec4(finalColor * (1.7 * intensity), alpha);
+      }
+    `;
+
+    // 5. Vortex Particles setup
     const vortexGeo = new THREE.BufferGeometry();
     const vortexPositions = new Float32Array(this.vortexCount * 3);
     const vortexColors = new Float32Array(this.vortexCount * 3);
+    const vortexSizes = new Float32Array(this.vortexCount);
+    const vortexLifes = new Float32Array(this.vortexCount);
     this.vortexData = [];
 
     for (let i = 0; i < this.vortexCount; i++) {
@@ -5450,7 +5524,6 @@ const CinematicIntro = {
       vortexPositions[i * 3 + 1] = y;
       vortexPositions[i * 3 + 2] = z;
 
-      // 65% electric cyan, 35% deep cosmic blue
       if (Math.random() < 0.65) {
         vortexColors[i * 3] = 0.0;     // R
         vortexColors[i * 3 + 1] = 0.95; // G
@@ -5461,12 +5534,16 @@ const CinematicIntro = {
         vortexColors[i * 3 + 2] = 1.0;
       }
 
+      vortexSizes[i] = 1.0 + Math.random() * 2.2;
+      vortexLifes[i] = 1.0;
+
       this.vortexData.push({
         angle,
         radiusStart,
         radiusTarget,
         height,
         speed: 1.0 + Math.random() * 2.0,
+        life: 1.0,
         vx: 0,
         vy: 0,
         vz: 0
@@ -5475,23 +5552,28 @@ const CinematicIntro = {
 
     vortexGeo.setAttribute('position', new THREE.BufferAttribute(vortexPositions, 3));
     vortexGeo.setAttribute('color', new THREE.BufferAttribute(vortexColors, 3));
+    vortexGeo.setAttribute('aSize', new THREE.BufferAttribute(vortexSizes, 1));
+    vortexGeo.setAttribute('aLife', new THREE.BufferAttribute(vortexLifes, 1));
 
-    const vortexMat = new THREE.PointsMaterial({
-      size: 0.9,
-      map: this.glowTexture,
-      vertexColors: true,
+    const vortexMat = new THREE.ShaderMaterial({
+      uniforms: this.vortexUniforms,
+      vertexShader: vortexVertexShader,
+      fragmentShader: vortexFragmentShader,
       blending: THREE.AdditiveBlending,
       transparent: true,
-      depthWrite: false
+      depthWrite: false,
+      vertexColors: true
     });
 
     this.vortexPoints = new THREE.Points(vortexGeo, vortexMat);
     this.scene.add(this.vortexPoints);
 
-    // 5. Aura Particles (Yellowish-Red solar flame column)
+    // 6. Aura Particles setup
     const auraGeo = new THREE.BufferGeometry();
     const auraPositions = new Float32Array(this.auraCount * 3);
     const auraColors = new Float32Array(this.auraCount * 3);
+    const auraSizes = new Float32Array(this.auraCount);
+    const auraLifes = new Float32Array(this.auraCount);
     this.auraData = [];
 
     for (let i = 0; i < this.auraCount; i++) {
@@ -5506,7 +5588,6 @@ const CinematicIntro = {
       auraPositions[i * 3 + 1] = yVal;
       auraPositions[i * 3 + 2] = z;
 
-      // 50% gold, 50% crimson red
       if (Math.random() < 0.5) {
         auraColors[i * 3] = 1.0;     // R
         auraColors[i * 3 + 1] = 0.70; // G
@@ -5517,12 +5598,16 @@ const CinematicIntro = {
         auraColors[i * 3 + 2] = 0.0;
       }
 
+      auraSizes[i] = 1.5 + Math.random() * 2.8;
+      auraLifes[i] = 1.0;
+
       this.auraData.push({
         angle,
         radius,
         yVal,
         speed: 1.5 + Math.random() * 2.0,
         wobbleSpeed: 3 + Math.random() * 5,
+        life: 1.0,
         vx: 0,
         vy: 0,
         vz: 0
@@ -5531,14 +5616,17 @@ const CinematicIntro = {
 
     auraGeo.setAttribute('position', new THREE.BufferAttribute(auraPositions, 3));
     auraGeo.setAttribute('color', new THREE.BufferAttribute(auraColors, 3));
+    auraGeo.setAttribute('aSize', new THREE.BufferAttribute(auraSizes, 1));
+    auraGeo.setAttribute('aLife', new THREE.BufferAttribute(auraLifes, 1));
 
-    const auraMat = new THREE.PointsMaterial({
-      size: 1.3,
-      map: this.glowTexture,
-      vertexColors: true,
+    const auraMat = new THREE.ShaderMaterial({
+      uniforms: this.auraUniforms,
+      vertexShader: auraVertexShader,
+      fragmentShader: auraFragmentShader,
       blending: THREE.AdditiveBlending,
       transparent: true,
-      depthWrite: false
+      depthWrite: false,
+      vertexColors: true
     });
 
     this.auraPoints = new THREE.Points(auraGeo, auraMat);
@@ -5607,6 +5695,11 @@ const CinematicIntro = {
 
     const now = Date.now();
     const elapsed = (now - this.phaseTimer) / 1000;
+    const dt = 0.016; // approx time delta
+
+    // Update uniforms
+    if (this.vortexUniforms) this.vortexUniforms.uTime.value = elapsed;
+    if (this.auraUniforms) this.auraUniforms.uTime.value = elapsed;
 
     // Camera & Animation Phases logic
     if (this.phase === 'converge') {
@@ -5622,6 +5715,7 @@ const CinematicIntro = {
       // Swirling particles animation
       const factor = Math.max(0, 1 - elapsed / 4.5);
       const vortexPos = this.vortexPoints.geometry.attributes.position;
+      const vortexLifeAttr = this.vortexPoints.geometry.attributes.aLife;
       
       for (let i = 0; i < this.vortexCount; i++) {
         const data = this.vortexData[i];
@@ -5633,14 +5727,17 @@ const CinematicIntro = {
         const y = data.height + Math.sin(data.angle * 1.5) * 3;
         
         vortexPos.setXYZ(i, x, y, z);
+        vortexLifeAttr.setX(i, 1.0);
       }
       vortexPos.needsUpdate = true;
+      vortexLifeAttr.needsUpdate = true;
 
       // Aura flame column rises slowly
       const auraPos = this.auraPoints.geometry.attributes.position;
+      const auraLifeAttr = this.auraPoints.geometry.attributes.aLife;
       for (let i = 0; i < this.auraCount; i++) {
         const data = this.auraData[i];
-        data.yVal += 0.06 * data.speed;
+        data.yVal += 0.08 * data.speed;
         if (data.yVal > 25) data.yVal = -20;
         
         const wobble = Math.sin(now * 0.001 * data.wobbleSpeed) * 0.25;
@@ -5648,8 +5745,12 @@ const CinematicIntro = {
         const z = Math.sin(data.angle) * data.radius + wobble;
         
         auraPos.setXYZ(i, x, data.yVal, z);
+        
+        const lifeRatio = 1.0 - Math.min(1.0, Math.max(0.0, (data.yVal - (-20)) / 45.0));
+        auraLifeAttr.setX(i, lifeRatio);
       }
       auraPos.needsUpdate = true;
+      auraLifeAttr.needsUpdate = true;
 
       if (Math.random() < 0.04 * elapsed) {
         this.triggerLightning();
@@ -5677,10 +5778,11 @@ const CinematicIntro = {
 
       // Fast rising fire tornado animation
       const auraPos = this.auraPoints.geometry.attributes.position;
+      const auraLifeAttr = this.auraPoints.geometry.attributes.aLife;
       for (let i = 0; i < this.auraCount; i++) {
         const data = this.auraData[i];
-        data.yVal += 0.28 * data.speed; // rises extremely fast
-        data.angle += 0.05; // rapid spin
+        data.yVal += 0.32 * data.speed; // rises extremely fast
+        data.angle += 0.06; // rapid spin
         
         if (data.yVal > 35) {
           data.yVal = -20;
@@ -5690,23 +5792,29 @@ const CinematicIntro = {
         const z = Math.sin(data.angle) * (data.radius * 0.8);
         
         auraPos.setXYZ(i, x, data.yVal, z);
+        const lifeRatio = 1.0 - Math.min(1.0, Math.max(0.0, (data.yVal - (-20)) / 55.0));
+        auraLifeAttr.setX(i, lifeRatio);
       }
       auraPos.needsUpdate = true;
+      auraLifeAttr.needsUpdate = true;
 
       // Vortex wraps tornado tightly
       const vortexPos = this.vortexPoints.geometry.attributes.position;
+      const vortexLifeAttr = this.vortexPoints.geometry.attributes.aLife;
       for (let i = 0; i < this.vortexCount; i++) {
         const data = this.vortexData[i];
         data.angle += 0.08 * data.speed;
-        data.height += 0.15;
+        data.height += 0.18;
         if (data.height > 30) data.height = -15;
 
         const x = Math.cos(data.angle) * (data.radiusTarget * 0.9);
         const z = Math.sin(data.angle) * (data.radiusTarget * 0.9);
         
         vortexPos.setXYZ(i, x, data.height, z);
+        vortexLifeAttr.setX(i, 1.0);
       }
       vortexPos.needsUpdate = true;
+      vortexLifeAttr.needsUpdate = true;
 
       if (Math.random() < 0.32) {
         this.triggerLightning();
@@ -5734,6 +5842,7 @@ const CinematicIntro = {
           data.vx = Math.sin(phi) * Math.cos(theta) * force;
           data.vy = Math.cos(phi) * force;
           data.vz = Math.sin(phi) * Math.sin(theta) * force;
+          data.life = 1.0;
         }
 
         // Aura explosion physics
@@ -5746,6 +5855,7 @@ const CinematicIntro = {
           data.vx = Math.sin(phi) * Math.cos(theta) * force;
           data.vy = Math.cos(phi) * force;
           data.vz = Math.sin(phi) * Math.sin(theta) * force;
+          data.life = 1.0;
         }
       }
     } else if (this.phase === 'explode') {
@@ -5762,25 +5872,27 @@ const CinematicIntro = {
       this.camera.lookAt(0, 0, 0);
 
       // Animate explosion radial velocities
-      const dt = 0.016; // fixed timestep approx
-      
       const vortexPos = this.vortexPoints.geometry.attributes.position;
+      const vortexLifeAttr = this.vortexPoints.geometry.attributes.aLife;
       for (let i = 0; i < this.vortexCount; i++) {
         const data = this.vortexData[i];
         let x = vortexPos.getX(i) + data.vx * dt;
         let y = vortexPos.getY(i) + data.vy * dt;
         let z = vortexPos.getZ(i) + data.vz * dt;
         
-        // Apply friction/drag
         data.vx *= 0.94;
         data.vy *= 0.94;
         data.vz *= 0.94;
+        data.life -= 0.016;
         
         vortexPos.setXYZ(i, x, y, z);
+        vortexLifeAttr.setX(i, Math.max(0.0, data.life));
       }
       vortexPos.needsUpdate = true;
+      vortexLifeAttr.needsUpdate = true;
 
       const auraPos = this.auraPoints.geometry.attributes.position;
+      const auraLifeAttr = this.auraPoints.geometry.attributes.aLife;
       for (let i = 0; i < this.auraCount; i++) {
         const data = this.auraData[i];
         let x = auraPos.getX(i) + data.vx * dt;
@@ -5790,10 +5902,13 @@ const CinematicIntro = {
         data.vx *= 0.94;
         data.vy *= 0.94;
         data.vz *= 0.94;
+        data.life -= 0.018;
         
         auraPos.setXYZ(i, x, y, z);
+        auraLifeAttr.setX(i, Math.max(0.0, data.life));
       }
       auraPos.needsUpdate = true;
+      auraLifeAttr.needsUpdate = true;
 
       if (elapsed >= 1.0) {
         this.phase = 'settle';
@@ -5816,22 +5931,33 @@ const CinematicIntro = {
 
       // Particles float slowly downwards/sideways like stardust
       const vortexPos = this.vortexPoints.geometry.attributes.position;
+      const vortexLifeAttr = this.vortexPoints.geometry.attributes.aLife;
       for (let i = 0; i < this.vortexCount; i++) {
         let x = vortexPos.getX(i) + Math.sin(now * 0.0005 + i) * 0.015;
         let y = vortexPos.getY(i) - 0.02; // slow fall
         let z = vortexPos.getZ(i) + Math.cos(now * 0.0005 + i) * 0.015;
         vortexPos.setXYZ(i, x, y, z);
+        
+        // fade slowly
+        const currentLife = vortexLifeAttr.getX(i);
+        vortexLifeAttr.setX(i, Math.max(0.12, currentLife - 0.005));
       }
       vortexPos.needsUpdate = true;
+      vortexLifeAttr.needsUpdate = true;
 
       const auraPos = this.auraPoints.geometry.attributes.position;
+      const auraLifeAttr = this.auraPoints.geometry.attributes.aLife;
       for (let i = 0; i < this.auraCount; i++) {
         let x = auraPos.getX(i) + Math.sin(now * 0.0005 + i) * 0.015;
         let y = auraPos.getY(i) - 0.015; // slow fall
         let z = auraPos.getZ(i) + Math.cos(now * 0.0005 + i) * 0.015;
         auraPos.setXYZ(i, x, y, z);
+        
+        const currentLife = auraLifeAttr.getX(i);
+        auraLifeAttr.setX(i, Math.max(0.12, currentLife - 0.005));
       }
       auraPos.needsUpdate = true;
+      auraLifeAttr.needsUpdate = true;
     }
 
     // Update lightning opacity
