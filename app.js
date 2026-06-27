@@ -5311,6 +5311,15 @@ const CinematicIntro = {
   emberData: [],
   emberCount: 400,
 
+  // Physical Gravity Sparks (Box2D-style attraction physics)
+  sparksPoints: null,
+  sparksData: [],
+  sparksCount: 220,
+
+  // Shockwave Rings (Visual Style Enhancer)
+  shockwaves: [],
+  lastShockwaveTime: 0,
+
   // Uniforms
   innerUniforms: null,
   outerUniforms: null,
@@ -5351,6 +5360,9 @@ const CinematicIntro = {
     this.lightShafts = [];
     this.lightningMeshes = [];
     this.emberData = [];
+    this.sparksData = [];
+    this.shockwaves = [];
+    this.lastShockwaveTime = 0;
     this.shakeIntensity = 0;
     this.flashAlpha = 0;
 
@@ -5847,11 +5859,74 @@ const CinematicIntro = {
     this.emberPoints.scale.set(0.01, 0.01, 0.01);
     this.scene.add(this.emberPoints);
 
-    // 10. Goku Muscular Mannequin Silhouette setup
+    // 10. Box2D-style Physics Gravitational Attractor Sparks
+    const sparkGeo = new THREE.BufferGeometry();
+    const sparkPositions = new Float32Array(this.sparksCount * 3);
+    const sparkColors = new Float32Array(this.sparksCount * 3);
+
+    // Particle texture
+    const sparkCanvas = document.createElement('canvas');
+    sparkCanvas.width = 16;
+    sparkCanvas.height = 16;
+    const sCtx = sparkCanvas.getContext('2d');
+    const sGrad = sCtx.createRadialGradient(8, 8, 0, 8, 8, 8);
+    sGrad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    sGrad.addColorStop(0.4, 'rgba(0, 242, 254, 0.95)');
+    sGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    sCtx.fillStyle = sGrad;
+    sCtx.fillRect(0, 0, 16, 16);
+    const sparkTex = new THREE.CanvasTexture(sparkCanvas);
+
+    for (let i = 0; i < this.sparksCount; i++) {
+      // Spawn far away in a spherical outer shell
+      const u = Math.random();
+      const v = Math.random();
+      const theta = u * 2.0 * Math.PI;
+      const phi = Math.acos(2.0 * v - 1.0);
+      const r = 26 + Math.random() * 14;
+
+      const x = r * Math.sin(phi) * Math.cos(theta);
+      const y = -10 + Math.random() * 25;
+      const z = r * Math.sin(phi) * Math.sin(theta);
+
+      sparkPositions[i * 3] = x;
+      sparkPositions[i * 3 + 1] = y;
+      sparkPositions[i * 3 + 2] = z;
+
+      sparkColors[i * 3] = 0.0;
+      sparkColors[i * 3 + 1] = 0.95;
+      sparkColors[i * 3 + 2] = 1.0;
+
+      this.sparksData.push({
+        vx: 0,
+        vy: 0,
+        vz: 0,
+        target: new THREE.Vector3(0, -3 + Math.random() * 15, 0), // pull toward core height
+        life: 1.0
+      });
+    }
+
+    sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPositions, 3));
+    sparkGeo.setAttribute('color', new THREE.BufferAttribute(sparkColors, 3));
+
+    const sparkMat = new THREE.PointsMaterial({
+      size: 0.95,
+      map: sparkTex,
+      vertexColors: true,
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      depthWrite: false
+    });
+
+    this.sparksPoints = new THREE.Points(sparkGeo, sparkMat);
+    this.sparksPoints.scale.set(0.01, 0.01, 0.01);
+    this.scene.add(this.sparksPoints);
+
+    // 11. Goku Muscular Mannequin Silhouette setup
     this.gokuMesh = this.createGokuMannequin();
     this.scene.add(this.gokuMesh);
 
-    // 11. Post-processing pipeline setup
+    // 12. Post-processing pipeline setup
     this.composer = new THREE.EffectComposer(this.renderer);
     const renderPass = new THREE.RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
@@ -5927,6 +6002,34 @@ const CinematicIntro = {
       alpha: 1.0,
       decay: 0.15 + Math.random() * 0.15
     });
+
+    // Visual Style Enhancer: Spike bloom pass strength temporarily on lightning strikes
+    if (this.bloomPass) {
+      this.bloomPass.strength = 2.45;
+    }
+  },
+
+  spawnShockwave() {
+    // Spawn expanding horizontal energy ring (Kiai shockwave)
+    const ringGeo = new THREE.RingGeometry(0.1, 4.5, 32);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x00f2fe,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    ringMesh.rotation.x = Math.PI / 2;
+    ringMesh.position.y = -3 + Math.random() * 10;
+    this.scene.add(ringMesh);
+
+    this.shockwaves.push({
+      mesh: ringMesh,
+      scale: 1.0,
+      alpha: 0.95
+    });
   },
 
   loop() {
@@ -5935,6 +6038,11 @@ const CinematicIntro = {
     const now = Date.now();
     const elapsed = (now - this.phaseTimer) / 1000;
     const dt = 0.016; // approx time delta
+
+    // Slowly decay bloom pass back to baseline
+    if (this.bloomPass && this.bloomPass.strength > 1.65) {
+      this.bloomPass.strength -= 0.06;
+    }
 
     // Update shaders uniforms
     if (this.innerUniforms) this.innerUniforms.uTime.value = elapsed;
@@ -5982,6 +6090,57 @@ const CinematicIntro = {
       }
       emberPos.needsUpdate = true;
 
+      // Box2D Physics Spark Attractor simulation: Pull energy inward toward core
+      this.sparksPoints.scale.set(scaleVal, scaleVal, scaleVal);
+      const sparkPos = this.sparksPoints.geometry.attributes.position;
+      for (let i = 0; i < this.sparksCount; i++) {
+        const data = this.sparksData[i];
+        const spx = sparkPos.getX(i);
+        const spy = sparkPos.getY(i);
+        const spz = sparkPos.getZ(i);
+
+        const currentPos = new THREE.Vector3(spx, spy, spz);
+        const dir = data.target.clone().sub(currentPos);
+        const distSq = dir.lengthSq();
+        
+        dir.normalize();
+        // Physics gravitational pull
+        const attractionForce = 35.0 / (distSq + 2.0);
+        data.vx += dir.x * attractionForce;
+        data.vy += dir.y * attractionForce;
+        data.vz += dir.z * attractionForce;
+
+        // Apply friction/drag coordinates
+        data.vx *= 0.93;
+        data.vy *= 0.93;
+        data.vz *= 0.93;
+
+        const nextX = spx + data.vx;
+        const nextY = spy + data.vy;
+        const nextZ = spz + data.vz;
+
+        sparkPos.setXYZ(i, nextX, nextY, nextZ);
+
+        // Reset if reached target core
+        if (distSq < 1.5) {
+          const u = Math.random();
+          const v = Math.random();
+          const theta = u * 2.0 * Math.PI;
+          const phi = Math.acos(2.0 * v - 1.0);
+          const r = 26 + Math.random() * 14;
+          
+          const rx = r * Math.sin(phi) * Math.cos(theta);
+          const ry = -10 + Math.random() * 25;
+          const rz = r * Math.sin(phi) * Math.sin(theta);
+          
+          sparkPos.setXYZ(i, rx, ry, rz);
+          data.vx = 0;
+          data.vy = 0;
+          data.vz = 0;
+        }
+      }
+      sparkPos.needsUpdate = true;
+
       // Slow lightning build up
       if (Math.random() < 0.045 * elapsed) {
         this.triggerLightning();
@@ -6007,17 +6166,16 @@ const CinematicIntro = {
       this.camera.position.y = 4 + dy;
       this.camera.lookAt(0, 6, 0);
 
-      // Increase scale slightly to look explosive
-      const scaleFactor = 1.0 + Math.sin(now * 0.06) * 0.08;
-      this.innerCylinder.scale.set(scaleFactor, 1, scaleFactor);
-      this.outerCylinder.scale.set(scaleFactor, 1, scaleFactor);
+      // Oscillating pulse scale (Visual Style Enhancer Ki flare)
+      const scaleFactor = 1.0 + Math.sin(now * 0.075) * 0.095;
+      this.innerCylinder.scale.set(scaleFactor, 1.0, scaleFactor);
+      this.outerCylinder.scale.set(scaleFactor, 1.0, scaleFactor);
 
       // Spin and flash Goku's mannequin
       const flashIntensity = 0.7 + Math.sin(now * 0.08) * 0.3;
       this.gokuMesh.scale.set(0.65 * scaleFactor, 0.65, 0.65 * scaleFactor);
       if (this.gokuUniforms) {
         this.gokuUniforms.uOpacity.value = 0.85 * flashIntensity;
-        // flash golden Saiyan color vs white/cyan base
         if (Math.sin(now * 0.05) > 0) {
           this.gokuUniforms.uColor.value.setHex(0xffcc00); // Super-Saiyan Gold
         } else {
@@ -6041,6 +6199,51 @@ const CinematicIntro = {
       }
       emberPos.needsUpdate = true;
 
+      // Gravitational physics sparks pull inward at hyper velocity
+      const sparkPos = this.sparksPoints.geometry.attributes.position;
+      for (let i = 0; i < this.sparksCount; i++) {
+        const data = this.sparksData[i];
+        const spx = sparkPos.getX(i);
+        const spy = sparkPos.getY(i);
+        const spz = sparkPos.getZ(i);
+
+        const currentPos = new THREE.Vector3(spx, spy, spz);
+        const dir = data.target.clone().sub(currentPos);
+        const distSq = dir.lengthSq();
+        
+        dir.normalize();
+        const attractionForce = 60.0 / (distSq + 2.0); // pull harder
+        data.vx += dir.x * attractionForce;
+        data.vy += dir.y * attractionForce;
+        data.vz += dir.z * attractionForce;
+
+        data.vx *= 0.91;
+        data.vy *= 0.91;
+        data.vz *= 0.91;
+
+        sparkPos.setXYZ(i, spx + data.vx, spy + data.vy, spz + data.vz);
+
+        if (distSq < 1.0) {
+          const u = Math.random();
+          const v = Math.random();
+          const theta = u * 2.0 * Math.PI;
+          const phi = Math.acos(2.0 * v - 1.0);
+          const r = 26 + Math.random() * 10;
+          sparkPos.setXYZ(i, r * Math.sin(phi) * Math.cos(theta), -10 + Math.random() * 25, r * Math.sin(phi) * Math.sin(theta));
+          data.vx = 0; data.vy = 0; data.vz = 0;
+        }
+      }
+      sparkPos.needsUpdate = true;
+
+      // Spawn periodic visual shockwaves (Visual Style Enhancer)
+      if (now - this.lastShockwaveTime > 900) {
+        this.spawnShockwave();
+        this.lastShockwaveTime = now;
+        if (this.bloomPass) {
+          this.bloomPass.strength = 2.15; // flash bloom on shockwave burst
+        }
+      }
+
       // Heavy crackling lightning sheets
       if (Math.random() < 0.38) {
         this.triggerLightning();
@@ -6056,13 +6259,22 @@ const CinematicIntro = {
           this.flashOverlay.style.opacity = '1.0';
         }
 
-        // Initialize radial explosion vectors for embers
+        // Initialize radial explosion vectors for embers and sparks
         for (let i = 0; i < this.emberCount; i++) {
           const data = this.emberData[i];
           const theta = Math.random() * Math.PI * 2;
           const phi = Math.acos(Math.random() * 2 - 1);
           const force = 35 + Math.random() * 65;
-          
+          data.vx = Math.sin(phi) * Math.cos(theta) * force;
+          data.vy = Math.cos(phi) * force;
+          data.vz = Math.sin(phi) * Math.sin(theta) * force;
+        }
+
+        for (let i = 0; i < this.sparksCount; i++) {
+          const data = this.sparksData[i];
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(Math.random() * 2 - 1);
+          const force = 60 + Math.random() * 80;
           data.vx = Math.sin(phi) * Math.cos(theta) * force;
           data.vy = Math.cos(phi) * force;
           data.vz = Math.sin(phi) * Math.sin(theta) * force;
@@ -6111,14 +6323,22 @@ const CinematicIntro = {
         let x = emberPos.getX(i) + data.vx * dt;
         let y = emberPos.getY(i) + data.vy * dt;
         let z = emberPos.getZ(i) + data.vz * dt;
-        
-        data.vx *= 0.92;
-        data.vy *= 0.92;
-        data.vz *= 0.92;
-        
+        data.vx *= 0.92; data.vy *= 0.92; data.vz *= 0.92;
         emberPos.setXYZ(i, x, y, z);
       }
       emberPos.needsUpdate = true;
+
+      // Blast physics sparks radially
+      const sparkPos = this.sparksPoints.geometry.attributes.position;
+      for (let i = 0; i < this.sparksCount; i++) {
+        const data = this.sparksData[i];
+        let x = sparkPos.getX(i) + data.vx * dt;
+        let y = sparkPos.getY(i) + data.vy * dt;
+        let z = sparkPos.getZ(i) + data.vz * dt;
+        data.vx *= 0.90; data.vy *= 0.90; data.vz *= 0.90;
+        sparkPos.setXYZ(i, x, y, z);
+      }
+      sparkPos.needsUpdate = true;
 
       if (elapsed >= 1.0) {
         this.phase = 'settle';
@@ -6139,7 +6359,7 @@ const CinematicIntro = {
       this.camera.position.set(0, 0, 55);
       this.camera.lookAt(0, 0, 0);
 
-      // Hide everything except embers
+      // Hide everything except embers/sparks
       this.innerCylinder.scale.set(0.01, 0.01, 0.01);
       this.outerCylinder.scale.set(0.01, 0.01, 0.01);
       this.gokuMesh.scale.set(0.01, 0.01, 0.01);
@@ -6156,7 +6376,40 @@ const CinematicIntro = {
         emberPos.setXYZ(i, x, y, z);
       }
       emberPos.needsUpdate = true;
+
+      // Sparks float slowly down too
+      const sparkPos = this.sparksPoints.geometry.attributes.position;
+      for (let i = 0; i < this.sparksCount; i++) {
+        const data = this.sparksData[i];
+        data.life += 0.03;
+        let x = sparkPos.getX(i) + Math.cos(data.life) * 0.02;
+        let y = sparkPos.getY(i) - 0.025;
+        let z = sparkPos.getZ(i) + Math.sin(data.life) * 0.02;
+        sparkPos.setXYZ(i, x, y, z);
+      }
+      sparkPos.needsUpdate = true;
     }
+
+    // Animate shockwaves expansion & fade (Visual Style Enhancer)
+    this.shockwaves.forEach(sw => {
+      sw.scale += 0.28;
+      sw.mesh.scale.set(sw.scale, sw.scale, 1.0);
+      sw.alpha *= 0.93;
+      if (sw.mesh.material) {
+        sw.mesh.material.opacity = sw.alpha;
+      }
+    });
+
+    // Clean up expired shockwaves
+    this.shockwaves = this.shockwaves.filter(sw => {
+      if (sw.alpha <= 0.04) {
+        this.scene.remove(sw.mesh);
+        sw.mesh.geometry.dispose();
+        if (sw.mesh.material) sw.mesh.material.dispose();
+        return false;
+      }
+      return true;
+    });
 
     // Animate lightning sheets
     this.lightningMeshes.forEach(l => {
@@ -6227,10 +6480,20 @@ const CinematicIntro = {
         l.mesh.geometry.dispose();
         if (l.mesh.material) l.mesh.material.dispose();
       });
+      this.shockwaves.forEach(sw => {
+        this.scene.remove(sw.mesh);
+        sw.mesh.geometry.dispose();
+        if (sw.mesh.material) sw.mesh.material.dispose();
+      });
       if (this.emberPoints) {
         this.scene.remove(this.emberPoints);
         this.emberPoints.geometry.dispose();
         if (this.emberPoints.material) this.emberPoints.material.dispose();
+      }
+      if (this.sparksPoints) {
+        this.scene.remove(this.sparksPoints);
+        this.sparksPoints.geometry.dispose();
+        if (this.sparksPoints.material) this.sparksPoints.material.dispose();
       }
       if (this.composer) {
         this.composer.passes.forEach(pass => {
