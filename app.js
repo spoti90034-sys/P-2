@@ -5297,8 +5297,6 @@ const CinematicIntro = {
   renderer: null,
   scene: null,
   camera: null,
-  composer: null,
-  bloomPass: null,
 
   // Volumetric Mesh assets
   innerCylinder: null,
@@ -5315,7 +5313,6 @@ const CinematicIntro = {
   innerUniforms: null,
   outerUniforms: null,
   ribbonUniforms: null,
-  gokuUniforms: null,
 
   // Animation states
   phase: 'converge', // 'converge', 'tornado', 'explode', 'settle'
@@ -5400,60 +5397,12 @@ const CinematicIntro = {
   createGokuMannequin() {
     const gokuGroup = new THREE.Group();
     
-    // Toon Shading (Cel Shader) with Sobel Edge Outlines
-    const toonVertexShader = `
-      varying vec3 vNormal;
-      varying vec3 vViewPosition;
-      void main() {
-        vNormal = normalize(normalMatrix * normal);
-        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-        vViewPosition = -mvPosition.xyz;
-        gl_Position = projectionMatrix * mvPosition;
-      }
-    `;
-
-    const toonFragmentShader = `
-      varying vec3 vNormal;
-      varying vec3 vViewPosition;
-      uniform vec3 uColor;
-      uniform float uOpacity;
-      void main() {
-        vec3 normal = normalize(vNormal);
-        vec3 viewDir = normalize(vViewPosition);
-        
-        // Aura lighting direction
-        vec3 lightDir = normalize(vec3(0.0, 0.8, 1.0));
-        float diffuse = dot(normal, lightDir);
-        
-        // Cel-shading stepping (2-tone flat anime shading)
-        float cel = step(0.18, diffuse) * 0.55 + 0.45;
-        
-        // Ink outline rim coefficient
-        float rim = dot(normal, viewDir);
-        float outline = step(0.24, rim);
-        
-        vec3 finalColor = uColor * cel;
-        
-        if (outline < 0.1) {
-          finalColor = vec3(0.02, 0.05, 0.10); // Ink blue borders
-        }
-        
-        gl_FragColor = vec4(finalColor, uOpacity);
-      }
-    `;
-
-    this.gokuUniforms = {
-      uColor: { value: new THREE.Color(0xebfaff) },
-      uOpacity: { value: 0.85 }
-    };
-
-    const gokuMat = new THREE.ShaderMaterial({
-      vertexShader: toonVertexShader,
-      fragmentShader: toonFragmentShader,
-      uniforms: this.gokuUniforms,
+    // Translucent glowing material for the mannequin (energy outline)
+    const gokuMat = new THREE.MeshBasicMaterial({
+      color: 0xebfaff,
       transparent: true,
-      depthWrite: true,
-      side: THREE.DoubleSide
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending
     });
     
     // 1. Torso/Chest (Broad chest representation)
@@ -5537,7 +5486,7 @@ const CinematicIntro = {
     gokuGroup.add(rLeg);
 
     gokuGroup.scale.set(0.65, 0.65, 0.65);
-    gokuGroup.position.y = -8;
+    gokuGroup.position.y = -5.0; // Center Goku mannequin vertically
     
     return gokuGroup;
   },
@@ -5641,8 +5590,8 @@ const CinematicIntro = {
           finalColor = mix(finalColor, vec3(1.0), (n - 0.65) / 0.35);
         }
 
-        // Alpha calculation based on noise and rim light glow
-        float alpha = smoothstep(0.15, 0.6, n * 0.82 + rimGlow * 0.45);
+        // Alpha calculation based on noise and rim light glow (Fresnel transparency window)
+        float alpha = (n * 0.28 + rimGlow * 0.72);
         
         // Smoothly fade out edges at the top and bottom of cylinder column
         float edgeFade = sin(vUv.y * 3.14159);
@@ -5768,7 +5717,9 @@ const CinematicIntro = {
       fragmentShader: `
         varying vec2 vUv;
         void main() {
+          // fade out at bottom/top
           float verticalFade = sin(vUv.y * 3.14159);
+          // fade out towards edges of the cone
           float horizontalFade = 1.0 - abs(vUv.x - 0.5) * 2.0;
           float alpha = pow(verticalFade, 1.5) * pow(horizontalFade, 2.0) * 0.22;
           gl_FragColor = vec4(vec3(0.0, 0.95, 1.0) * 1.5, alpha);
@@ -5850,20 +5801,6 @@ const CinematicIntro = {
     // 10. Goku Muscular Mannequin Silhouette setup
     this.gokuMesh = this.createGokuMannequin();
     this.scene.add(this.gokuMesh);
-
-    // 11. Post-processing pipeline setup
-    this.composer = new THREE.EffectComposer(this.renderer);
-    const renderPass = new THREE.RenderPass(this.scene, this.camera);
-    this.composer.addPass(renderPass);
-
-    // UnrealBloomPass parameters: resolution, strength, radius, threshold
-    this.bloomPass = new THREE.UnrealBloomPass(
-      new THREE.Vector2(width, height),
-      1.65, // bloom strength (high radiance aura bloom)
-      0.45, // bloom radius
-      0.15  // bloom threshold
-    );
-    this.composer.addPass(this.bloomPass);
   },
 
   resize() {
@@ -5874,9 +5811,6 @@ const CinematicIntro = {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
-    if (this.composer) {
-      this.composer.setSize(width, height);
-    }
   },
 
   triggerLightning() {
@@ -5960,9 +5894,9 @@ const CinematicIntro = {
       // Scale up Goku and ribbons/rays
       const scaleVal = Math.min(1.0, elapsed / 3.5);
       this.gokuMesh.scale.set(0.65 * scaleVal, 0.65 * scaleVal, 0.65 * scaleVal);
-      if (this.gokuUniforms) {
-        this.gokuUniforms.uOpacity.value = 0.85 * scaleVal;
-      }
+      this.gokuMesh.traverse(child => {
+        if (child.material) child.material.opacity = 0.85 * scaleVal;
+      });
 
       this.helicalTubes.forEach(t => t.scale.set(scaleVal, scaleVal, scaleVal));
       this.lightShafts.forEach((s, idx) => {
@@ -6015,15 +5949,9 @@ const CinematicIntro = {
       // Spin and flash Goku's mannequin
       const flashIntensity = 0.7 + Math.sin(now * 0.08) * 0.3;
       this.gokuMesh.scale.set(0.65 * scaleFactor, 0.65, 0.65 * scaleFactor);
-      if (this.gokuUniforms) {
-        this.gokuUniforms.uOpacity.value = 0.85 * flashIntensity;
-        // flash golden Saiyan color vs white/cyan base
-        if (Math.sin(now * 0.05) > 0) {
-          this.gokuUniforms.uColor.value.setHex(0xffcc00); // Super-Saiyan Gold
-        } else {
-          this.gokuUniforms.uColor.value.setHex(0xebfaff); // White-Cyan
-        }
-      }
+      this.gokuMesh.traverse(child => {
+        if (child.material) child.material.opacity = 0.85 * flashIntensity;
+      });
 
       // Rapidly spin the helical ribbons
       this.helicalTubes.forEach((t, idx) => {
@@ -6088,9 +6016,9 @@ const CinematicIntro = {
       // Expand and fade Goku mannequin
       const gokuExpScale = 0.65 * (1.0 + elapsed * 8.0);
       this.gokuMesh.scale.set(gokuExpScale, gokuExpScale, gokuExpScale);
-      if (this.gokuUniforms) {
-        this.gokuUniforms.uOpacity.value = Math.max(0.0, 0.85 * (1.0 - elapsed / 1.0));
-      }
+      this.gokuMesh.traverse(child => {
+        if (child.material) child.material.opacity = Math.max(0.0, 0.85 * (1.0 - elapsed / 1.0));
+      });
 
       const alphaMult = Math.max(0.0, 1.0 - elapsed / 1.0);
       if (this.innerUniforms) this.innerUniforms.uAlpha.value = alphaMult;
@@ -6177,9 +6105,9 @@ const CinematicIntro = {
       return true;
     });
 
-    // Render Frame via Post-processing composer
-    if (this.composer && this.scene && this.camera) {
-      this.composer.render();
+    // Render Frame
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
     }
 
     this.animationFrameId = requestAnimationFrame(() => this.loop());
@@ -6231,12 +6159,6 @@ const CinematicIntro = {
         this.scene.remove(this.emberPoints);
         this.emberPoints.geometry.dispose();
         if (this.emberPoints.material) this.emberPoints.material.dispose();
-      }
-      if (this.composer) {
-        this.composer.passes.forEach(pass => {
-          if (pass.dispose) pass.dispose();
-        });
-        this.composer = null;
       }
       if (this.renderer) {
         this.renderer.dispose();
