@@ -5295,18 +5295,16 @@ const CinematicIntro = {
   canvas: null,
   ctx: null,
   animationFrameId: null,
-  particles: [],
-  auraParticles: [], 
-  targetPoints: [],
-  phase: 'assemble', // 'assemble', 'flex', 'explode', 'settle'
+  flames: [],
+  embers: [],
+  shockwaves: [],
+  lightnings: [],
+  phase: 'converge', // 'converge', 'tornado', 'explode', 'settle'
   phaseTimer: 0,
   width: 0,
   height: 0,
-  shockwaves: [],
-  lightnings: [], 
   shakeIntensity: 0,
   flashAlpha: 0,
-  coreRadius: 0,
 
   start() {
     const container = document.getElementById('cinematic-intro-container');
@@ -5324,15 +5322,14 @@ const CinematicIntro = {
 
     this.ctx = this.canvas.getContext('2d');
     this.active = true;
-    this.phase = 'assemble';
+    this.phase = 'converge';
     this.phaseTimer = Date.now();
-    this.particles = [];
-    this.auraParticles = [];
+    this.flames = [];
+    this.embers = [];
     this.shockwaves = [];
     this.lightnings = [];
     this.shakeIntensity = 0;
     this.flashAlpha = 0;
-    this.coreRadius = 0;
 
     this.resize();
     window.addEventListener('resize', this.handleResize);
@@ -5347,168 +5344,68 @@ const CinematicIntro = {
       enterBtn.addEventListener('click', () => this.terminate());
     }
 
-    this.generateHumanoidTargets();
-    this.initParticles();
-
     requestAnimationFrame((t) => this.loop(t));
   },
 
   handleResize: null,
 
   resize() {
+    const dpr = window.devicePixelRatio || 1;
     this.width = window.innerWidth;
     this.height = window.innerHeight;
-    this.canvas.width = this.width;
-    this.canvas.height = this.height;
-    this.generateHumanoidTargets();
+    this.canvas.width = this.width * dpr;
+    this.canvas.height = this.height * dpr;
+    this.ctx.resetTransform();
+    this.ctx.scale(dpr, dpr);
   },
 
-  generateHumanoidTargets() {
-    this.targetPoints = [];
-    const count = 1000;
-    const centerX = this.width / 2;
-    const centerY = this.height / 2 + 50; 
-    const scale = Math.min(this.width, this.height) * 0.0035; 
-
-    // Head
-    const headCount = Math.floor(count * 0.15);
-    const headRadius = 24 * scale;
-    const headCenterY = centerY - 110 * scale;
-    for (let i = 0; i < headCount; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const r = Math.random() * headRadius;
-      this.targetPoints.push({
-        x: centerX + Math.cos(angle) * r,
-        y: headCenterY + Math.sin(angle) * r,
-        part: 'head'
-      });
-    }
-
-    // Torso
-    const torsoCount = Math.floor(count * 0.35);
-    for (let i = 0; i < torsoCount; i++) {
-      const yRel = -85 + Math.random() * 95; 
-      const t = (yRel + 85) / 95; 
-      const halfW = (38 - t * 20) * scale;
-      const xRel = (Math.random() * 2 - 1) * halfW;
-      this.targetPoints.push({
-        x: centerX + xRel,
-        y: centerY + yRel * scale,
-        part: 'torso'
-      });
-    }
-
-    // Arms (Power flex pose)
-    const armCount = Math.floor(count * 0.25);
-    const halfArm = Math.floor(armCount / 2);
-    // Left arm
-    for (let i = 0; i < halfArm; i++) {
-      const t = Math.random();
-      let xRel, yRel;
-      if (t < 0.5) {
-        const u = t * 2;
-        xRel = -35 - u * 35;
-        yRel = -70 + u * 10;
-      } else {
-        const u = (t - 0.5) * 2;
-        xRel = -70 + u * 20;
-        yRel = -60 - u * 40;
-      }
-      xRel += (Math.random() * 2 - 1) * 6;
-      yRel += (Math.random() * 2 - 1) * 6;
-      this.targetPoints.push({
-        x: centerX + xRel * scale,
-        y: centerY + yRel * scale,
-        part: 'arm'
-      });
-    }
-    // Right arm
-    for (let i = 0; i < halfArm; i++) {
-      const t = Math.random();
-      let xRel, yRel;
-      if (t < 0.5) {
-        const u = t * 2;
-        xRel = 35 + u * 35;
-        yRel = -70 + u * 10;
-      } else {
-        const u = (t - 0.5) * 2;
-        xRel = 70 - u * 20;
-        yRel = -60 - u * 40;
-      }
-      xRel += (Math.random() * 2 - 1) * 6;
-      yRel += (Math.random() * 2 - 1) * 6;
-      this.targetPoints.push({
-        x: centerX + xRel * scale,
-        y: centerY + yRel * scale,
-        part: 'arm'
-      });
-    }
-
-    // Legs (Solid power stance)
-    const legCount = count - headCount - torsoCount - armCount;
-    const halfLeg = Math.floor(legCount / 2);
-    // Left leg
-    for (let i = 0; i < halfLeg; i++) {
-      const t = Math.random();
-      const xRel = -20 - t * 30;
-      const yRel = 10 + t * 105;
-      const thickX = (Math.random() * 2 - 1) * 8;
-      const thickY = (Math.random() * 2 - 1) * 4;
-      this.targetPoints.push({
-        x: centerX + (xRel + thickX) * scale,
-        y: centerY + (yRel + thickY) * scale,
-        part: 'leg'
-      });
-    }
-    // Right leg
-    for (let i = 0; i < (legCount - halfLeg); i++) {
-      const t = Math.random();
-      const xRel = 20 + t * 30;
-      const yRel = 10 + t * 105;
-      const thickX = (Math.random() * 2 - 1) * 8;
-      const thickY = (Math.random() * 2 - 1) * 4;
-      this.targetPoints.push({
-        x: centerX + (xRel + thickX) * scale,
-        y: centerY + (yRel + thickY) * scale,
-        part: 'leg'
-      });
-    }
+  spawnFlame(x, y, vx, vy, colorType) {
+    const size = 20 + Math.random() * 30; // volumetric glowing size
+    const decay = 0.015 + Math.random() * 0.015;
+    this.flames.push({
+      x, y, vx, vy,
+      size,
+      alpha: 1.0,
+      colorType,
+      life: 1.0,
+      decay,
+      wobbleSpeed: 0.04 + Math.random() * 0.06,
+      wobbleVal: Math.random() * 100
+    });
   },
 
-  initParticles() {
-    this.particles = [];
-    const count = 2200; 
-    for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const r = Math.max(this.width, this.height) * (0.6 + Math.random() * 0.4);
-      const x = this.width / 2 + Math.cos(angle) * r;
-      const y = this.height / 2 + Math.sin(angle) * r;
+  spawnEmber(x, y, vx, vy, colorType) {
+    const size = 1.2 + Math.random() * 2.2;
+    const decay = 0.004 + Math.random() * 0.008;
+    this.embers.push({
+      x, y, vx, vy,
+      size,
+      colorType,
+      alpha: 1.0,
+      life: 1.0,
+      decay
+    });
+  },
 
-      const rand = Math.random();
-      let color;
-      if (rand < 0.4) {
-        color = { r: 0, g: 242, b: 254 }; 
-      } else if (rand < 0.7) {
-        color = { r: 79, g: 172, b: 254 }; 
-      } else if (rand < 0.9) {
-        color = { r: 255, g: 165, b: 0 }; 
-      } else {
-        color = { r: 255, g: 255, b: 255 }; 
-      }
+  triggerLightningStrike(startX, startY, endX, endY) {
+    this.lightnings.push({
+      startX, startY, endX, endY,
+      alpha: 1.0,
+      decay: 0.08 + Math.random() * 0.08,
+      displace: 55
+    });
+  },
 
-      this.particles.push({
-        x: x,
-        y: y,
-        vx: (Math.random() - 0.5) * 6,
-        vy: (Math.random() - 0.5) * 6,
-        size: 1 + Math.random() * 2.2,
-        color: color,
-        alpha: 0.2 + Math.random() * 0.8,
-        targetIdx: i < this.targetPoints.length ? i : -1,
-        speedFactor: 0.015 + Math.random() * 0.035,
-        angleOffset: Math.random() * Math.PI * 2
-      });
-    }
+  spawnShockwave(isFinal = false, force = 20) {
+    this.shockwaves.push({
+      x: this.width / 2,
+      y: this.height / 2,
+      radius: 0,
+      maxRadius: Math.max(this.width, this.height) * (isFinal ? 1.3 : 0.8),
+      speed: isFinal ? 22 : 12,
+      force: force,
+      alpha: 1
+    });
   },
 
   loop() {
@@ -5516,44 +5413,101 @@ const CinematicIntro = {
 
     const now = Date.now();
     const elapsed = (now - this.phaseTimer) / 1000;
+    const centerX = this.width / 2;
+    const centerY = this.height / 2;
 
-    if (this.phase === 'assemble') {
-      this.shakeIntensity = Math.min(2.5, elapsed * 0.6); 
-      this.coreRadius = Math.min(45, (elapsed / 4.5) * 45); 
+    // Timeline phases
+    if (this.phase === 'converge') {
+      // Step 1: Convergence (0s - 4s)
+      this.shakeIntensity = Math.min(2.0, elapsed * 0.5);
       
-      if (Math.random() < 0.02 * elapsed) {
-        this.triggerLightningStrike();
+      // Spawning swirling streams
+      const angle = elapsed * 3.5;
+      const radius = Math.max(this.width, this.height) * 0.45 * (1 - elapsed / 4.0);
+      
+      // Source A: Blue plasma stream
+      const xA = centerX + Math.cos(angle) * radius;
+      const yA = centerY + Math.sin(angle) * radius;
+      const vxA = -Math.sin(angle) * 3 + (Math.random() - 0.5) * 2;
+      const vyA = Math.cos(angle) * 3 + (Math.random() - 0.5) * 2;
+      for (let i = 0; i < 3; i++) {
+        this.spawnFlame(xA, yA, vxA, vyA, 'blue');
+        this.spawnEmber(xA, yA, vxA * 1.5, vyA * 1.5, 'blue');
       }
 
-      if (elapsed >= 4.5) {
-        this.phase = 'flex';
+      // Source B: Yellowish-Red solar stream
+      const xB = centerX + Math.cos(angle + Math.PI) * radius;
+      const yB = centerY + Math.cos(angle + Math.PI) * radius;
+      const vxB = -Math.sin(angle + Math.PI) * 3 + (Math.random() - 0.5) * 2;
+      const vyB = Math.cos(angle + Math.PI) * 3 + (Math.random() - 0.5) * 2;
+      for (let i = 0; i < 3; i++) {
+        this.spawnFlame(xB, yB, vxB, vyB, 'yellow-red');
+        this.spawnEmber(xB, yB, vxB * 1.5, vyB * 1.5, 'yellow-red');
+      }
+
+      if (Math.random() < 0.03 * elapsed) {
+        this.triggerLightningStrike(xA, yA, xB, yB);
+      }
+
+      if (elapsed >= 4.0) {
+        this.phase = 'tornado';
         this.phaseTimer = now;
-        this.shakeIntensity = 8.5; 
-        this.spawnShockwave(false, 30); 
-        this.triggerLightningStrike(true); 
+        this.shakeIntensity = 8.0;
+        this.spawnShockwave(false, 35);
+        // Collision blast
+        this.triggerLightningStrike(centerX - 100, centerY - 100, centerX + 100, centerY + 100);
       }
-    } else if (this.phase === 'flex') {
-      this.shakeIntensity = 8.5 - (elapsed * 2); 
-      this.coreRadius = 45 + Math.sin(Date.now() * 0.05) * 10; 
-
-      this.spawnAuraParticles();
+    } else if (this.phase === 'tornado') {
+      // Step 2: Fire Tornado collision (4s - 6s)
+      this.shakeIntensity = 8.0 - (elapsed * 2.0);
+      
+      // Spawning swirling tornado in center
+      const angle = Date.now() * 0.008;
+      const tornadoRadius = 15;
+      
+      for (let i = 0; i < 5; i++) {
+        const theta = angle + i * (Math.PI / 2.5);
+        const xOffset = Math.cos(theta) * tornadoRadius;
+        const yOffset = Math.sin(theta) * tornadoRadius;
+        const vx = -Math.sin(theta) * 4 + (Math.random() - 0.5) * 2;
+        const vy = -3 - Math.random() * 5; // rise rapidly
+        
+        // Spawn mixed flames
+        this.spawnFlame(centerX + xOffset, centerY + yOffset, vx, vy, 'blue');
+        this.spawnFlame(centerX - xOffset, centerY - yOffset, -vx, vy, 'yellow-red');
+        
+        this.spawnEmber(centerX + xOffset, centerY + yOffset, vx * 1.8, vy, 'blue');
+        this.spawnEmber(centerX - xOffset, centerY - yOffset, -vx * 1.8, vy, 'yellow-red');
+      }
 
       if (Math.random() < 0.25) {
-        this.triggerLightningStrike();
+        const rx = centerX + (Math.random() - 0.5) * 300;
+        const ry = centerY + (Math.random() - 0.5) * 300;
+        this.triggerLightningStrike(Math.random() * this.width, 0, rx, ry);
       }
 
       if (elapsed >= 2.0) {
         this.phase = 'explode';
         this.phaseTimer = now;
-        this.shakeIntensity = 18; 
-        this.flashAlpha = 1.0; 
-        this.spawnShockwave(true, 65); 
-        this.triggerLightningStrike(true);
+        this.shakeIntensity = 18.0;
+        this.flashAlpha = 1.0;
+        this.spawnShockwave(true, 75);
+        // Radial blast
+        const pCount = 180;
+        for (let i = 0; i < pCount; i++) {
+          const theta = (i / pCount) * Math.PI * 2;
+          const speed = 8 + Math.random() * 24;
+          const vx = Math.cos(theta) * speed;
+          const vy = Math.sin(theta) * speed;
+          const type = Math.random() < 0.5 ? 'blue' : 'yellow-red';
+          this.spawnFlame(centerX, centerY, vx, vy, type);
+          this.spawnEmber(centerX, centerY, vx * 1.3, vy * 1.3, type);
+        }
       }
     } else if (this.phase === 'explode') {
-      this.shakeIntensity *= 0.88; 
-      this.flashAlpha *= 0.85; 
-      this.coreRadius = 0; 
+      // Step 3: Explosion (6s - 7.2s)
+      this.shakeIntensity *= 0.85;
+      this.flashAlpha *= 0.82;
 
       if (elapsed >= 1.2) {
         this.phase = 'settle';
@@ -5564,182 +5518,51 @@ const CinematicIntro = {
         }
       }
     } else if (this.phase === 'settle') {
+      // Step 4: Settle (7.2s+)
       this.shakeIntensity = 0;
       this.flashAlpha = 0;
     }
 
-    this.update(elapsed);
+    this.update();
     this.draw();
 
     this.animationFrameId = requestAnimationFrame(() => this.loop());
   },
 
-  spawnAuraParticles() {
-    const count = 12;
-    for (let i = 0; i < count; i++) {
-      const target = this.targetPoints[Math.floor(Math.random() * this.targetPoints.length)];
-      
-      this.auraParticles.push({
-        x: target.x + (Math.random() - 0.5) * 10,
-        y: target.y,
-        vx: (Math.random() - 0.5) * 3,
-        vy: -(Math.random() * 5 + 4), 
-        size: 1.5 + Math.random() * 3,
-        alpha: 1.0,
-        color: Math.random() < 0.6 ? { r: 255, g: 165, b: 0 } : { r: 0, g: 242, b: 254 }, 
-        life: 1.0,
-        decay: 0.02 + Math.random() * 0.02
-      });
-    }
-  },
-
-  triggerLightningStrike(heavy = false) {
-    const strikeCount = heavy ? 4 : 1;
-    for (let i = 0; i < strikeCount; i++) {
-      const startX = Math.random() * this.width;
-      const startY = 0; 
-      
-      const target = this.targetPoints[Math.floor(Math.random() * this.targetPoints.length)];
-      const endX = target.x;
-      const endY = target.y;
-
-      this.lightnings.push({
-        startX, startY, endX, endY,
-        alpha: 1.0,
-        decay: 0.08 + Math.random() * 0.08,
-        displace: 65,
-        branches: Math.random() < 0.4
-      });
-    }
-  },
-
-  spawnShockwave(isFinal = false, force = 20) {
-    this.shockwaves.push({
-      x: this.width / 2,
-      y: this.height / 2,
-      radius: 0,
-      maxRadius: Math.max(this.width, this.height) * (isFinal ? 1.3 : 0.8),
-      speed: isFinal ? 20 : 10,
-      force: force,
-      alpha: 1
+  update() {
+    // 1. Update flames
+    this.flames.forEach(f => {
+      f.x += f.vx;
+      f.y += f.vy;
+      f.vy -= 0.15; // heat rise
+      f.vx += Math.sin(f.wobbleVal) * 0.35; // wind wobble
+      f.wobbleVal += f.wobbleSpeed;
+      f.life -= f.decay;
+      f.size *= 0.94; // shrink
     });
-  },
+    this.flames = this.flames.filter(f => f.life > 0 && f.size > 1);
 
-  update(elapsed) {
-    const centerX = this.width / 2;
-    const centerY = this.height / 2 + 50;
+    // 2. Update embers
+    this.embers.forEach(e => {
+      e.x += e.vx;
+      e.y += e.vy;
+      e.vy -= 0.02; // slow rising embers
+      e.life -= e.decay;
+    });
+    this.embers = this.embers.filter(e => e.life > 0);
 
+    // 3. Update shockwaves
     this.shockwaves.forEach(w => {
       w.radius += w.speed;
       w.alpha = 1 - (w.radius / w.maxRadius);
     });
     this.shockwaves = this.shockwaves.filter(w => w.radius < w.maxRadius);
 
+    // 4. Update lightnings
     this.lightnings.forEach(l => {
       l.alpha -= l.decay;
     });
     this.lightnings = this.lightnings.filter(l => l.alpha > 0);
-
-    this.auraParticles.forEach(ap => {
-      ap.x += ap.vx;
-      ap.y += ap.vy;
-      ap.alpha -= ap.decay;
-      ap.size *= 0.96; 
-    });
-    this.auraParticles = this.auraParticles.filter(ap => ap.alpha > 0);
-
-    this.particles.forEach(p => {
-      const dx = p.x - centerX;
-      const dy = p.y - centerY;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-
-      if (this.phase === 'assemble') {
-        if (p.targetIdx !== -1) {
-          const target = this.targetPoints[p.targetIdx];
-          
-          const swirlFactor = 1.8 * (1 - Math.min(1, elapsed / 4.5)); 
-          p.vx += (-dy / dist) * swirlFactor;
-          p.vy += (dx / dist) * swirlFactor;
-
-          const force = p.speedFactor * Math.min(1.2, elapsed / 2.0);
-          p.vx += (target.x - p.x) * force;
-          p.vy += (target.y - p.y) * force;
-          p.vx *= 0.84;
-          p.vy *= 0.84;
-        } else {
-          const swirl = 1.0;
-          p.vx += (-dy / dist) * swirl;
-          p.vx += (centerX - p.x) * 0.0008;
-          p.vy += (dx / dist) * swirl;
-          p.vy += (centerY - p.y) * 0.0008;
-          p.vx *= 0.94;
-          p.vy *= 0.94;
-        }
-      } else if (this.phase === 'flex') {
-        if (p.targetIdx !== -1) {
-          const target = this.targetPoints[p.targetIdx];
-          p.vx += (target.x - p.x) * 0.22;
-          p.vy += (target.y - p.y) * 0.22;
-          
-          p.vx += (Math.random() - 0.5) * 3.5;
-          p.vy += (Math.random() - 0.5) * 3.5;
-          
-          p.vx *= 0.65;
-          p.vy *= 0.65;
-        } else {
-          p.vx += (-dy / dist) * 2.2;
-          p.vx += (centerX - p.x) * 0.005;
-          p.vy += (dx / dist) * 2.2;
-          p.vy += (centerY - p.y) * 0.005;
-          p.vx *= 0.88;
-          p.vy *= 0.88;
-        }
-      } else if (this.phase === 'explode') {
-        if (p.targetIdx !== -1) {
-          p.vx += (dx / dist) * (18 + Math.random() * 32);
-          p.vy += (dy / dist) * (18 + Math.random() * 32);
-          p.targetIdx = -1; 
-        }
-        p.vx *= 0.92;
-        p.vy *= 0.92;
-      } else if (this.phase === 'settle') {
-        p.vx *= 0.94;
-        p.vy *= 0.94;
-        p.vy += 0.035; 
-        p.alpha -= 0.007; 
-      }
-
-      this.shockwaves.forEach(w => {
-        const pdx = p.x - w.x;
-        const pdy = p.y - w.y;
-        const pdist = Math.sqrt(pdx * pdx + pdy * pdy) || 1;
-        const width = 100;
-        if (pdist > w.radius - width && pdist < w.radius + width) {
-          const intensity = 1 - Math.abs(pdist - w.radius) / width;
-          const pushForce = w.force * intensity * w.alpha;
-          p.vx += (pdx / pdist) * pushForce;
-          p.vy += (pdy / pdist) * pushForce;
-        }
-      });
-
-      p.x += p.vx;
-      p.y += p.vy;
-
-      if (this.phase === 'assemble' && p.targetIdx === -1) {
-        if (p.x < -100 || p.x > this.width + 100 || p.y < -100 || p.y > this.height + 100) {
-          const angle = Math.random() * Math.PI * 2;
-          const r = Math.max(this.width, this.height) * 0.5;
-          p.x = centerX + Math.cos(angle) * r;
-          p.y = centerY + Math.sin(angle) * r;
-          p.vx = 0;
-          p.vy = 0;
-        }
-      }
-    });
-
-    if (this.phase === 'settle') {
-      this.particles = this.particles.filter(p => p.alpha > 0);
-    }
   },
 
   drawLightningSegment(ctx, x1, y1, x2, y2, displace) {
@@ -5756,12 +5579,13 @@ const CinematicIntro = {
   },
 
   renderLightning(ctx, l) {
-    ctx.strokeStyle = `rgba(0, 242, 254, ${l.alpha * 0.6})`;
+    ctx.save();
+    ctx.strokeStyle = `rgba(0, 242, 254, ${l.alpha * 0.65})`;
     ctx.lineWidth = 5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.shadowColor = '#00f2fe';
-    ctx.shadowBlur = 15;
+    ctx.shadowBlur = 18;
     ctx.beginPath();
     ctx.moveTo(l.startX, l.startY);
     this.drawLightningSegment(ctx, l.startX, l.startY, l.endX, l.endY, l.displace);
@@ -5769,19 +5593,21 @@ const CinematicIntro = {
 
     ctx.strokeStyle = `rgba(255, 255, 255, ${l.alpha})`;
     ctx.lineWidth = 1.8;
-    ctx.shadowBlur = 0; 
+    ctx.shadowBlur = 0;
     ctx.beginPath();
     ctx.moveTo(l.startX, l.startY);
     this.drawLightningSegment(ctx, l.startX, l.startY, l.endX, l.endY, l.displace);
     ctx.stroke();
+    ctx.restore();
   },
 
   draw() {
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.20)';
     this.ctx.fillRect(0, 0, this.width, this.height);
 
     this.ctx.save();
 
+    // Camera Shake
     if (this.shakeIntensity > 0.1) {
       const dx = (Math.random() - 0.5) * this.shakeIntensity;
       const dy = (Math.random() - 0.5) * this.shakeIntensity;
@@ -5789,79 +5615,98 @@ const CinematicIntro = {
     }
 
     const centerX = this.width / 2;
-    const centerY = this.height / 2 + 50;
+    const centerY = this.height / 2;
 
-    if (this.phase === 'assemble' || this.phase === 'flex') {
-      const gradient = this.ctx.createRadialGradient(
+    this.ctx.globalCompositeOperation = 'screen';
+
+    // 1. Draw Volumetric background lighting
+    if (this.phase === 'converge' || this.phase === 'tornado') {
+      const progress = this.phase === 'converge' ? Math.min(1.0, (Date.now() - this.phaseTimer) / 4000) : 1.0;
+      const bgGrad = this.ctx.createRadialGradient(
         centerX, centerY, 0,
-        centerX, centerY, Math.max(this.width, this.height) * 0.38
+        centerX, centerY, Math.max(this.width, this.height) * 0.42
       );
-      const progress = this.phase === 'assemble' ? Math.min(1.0, (Date.now() - this.phaseTimer) / 4500) : 1.0;
-      gradient.addColorStop(0, `rgba(0, 150, 220, ${0.24 * progress})`);
-      gradient.addColorStop(0.4, `rgba(127, 0, 255, ${0.06 * progress})`);
-      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      this.ctx.fillStyle = gradient;
+      bgGrad.addColorStop(0, `rgba(18, 22, 43, ${0.45 * progress})`);
+      bgGrad.addColorStop(0.5, `rgba(127, 0, 255, ${0.08 * progress})`);
+      bgGrad.addColorStop(1, 'rgba(0,0,0,0)');
+      this.ctx.fillStyle = bgGrad;
       this.ctx.fillRect(0, 0, this.width, this.height);
     }
 
+    // 2. Draw shockwaves
     this.shockwaves.forEach(w => {
-      this.ctx.strokeStyle = `rgba(0, 242, 254, ${w.alpha * 0.35})`;
+      this.ctx.strokeStyle = `rgba(0, 242, 254, ${w.alpha * 0.38})`;
       this.ctx.lineWidth = 4 * w.alpha;
       this.ctx.beginPath();
       this.ctx.arc(w.x, w.y, w.radius, 0, Math.PI * 2);
       this.ctx.stroke();
 
-      this.ctx.strokeStyle = `rgba(79, 172, 254, ${w.alpha * 0.15})`;
-      this.ctx.lineWidth = 14 * w.alpha;
+      this.ctx.strokeStyle = `rgba(255, 120, 0, ${w.alpha * 0.20})`;
+      this.ctx.lineWidth = 15 * w.alpha;
       this.ctx.beginPath();
       this.ctx.arc(w.x, w.y, w.radius, 0, Math.PI * 2);
       this.ctx.stroke();
     });
 
-    const length = this.particles.length;
-    for (let i = 0; i < length; i++) {
-      const p = this.particles[i];
-      this.ctx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, ${p.alpha})`;
-      this.ctx.beginPath();
-      this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-      this.ctx.fill();
-
-      if (p.size > 2.2 && Math.random() < 0.25) {
-        this.ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha * 0.7})`;
-        this.ctx.beginPath();
-        this.ctx.arc(p.x, p.y, p.size * 0.5, 0, Math.PI * 2);
-        this.ctx.fill();
+    // 3. Draw volumetric flames (Additive Blending)
+    this.flames.forEach(f => {
+      let r, g, b;
+      const life = f.life;
+      
+      if (f.colorType === 'blue') {
+        if (life > 0.6) {
+          r = 255; g = 255; b = 255; // White hot
+        } else if (life > 0.3) {
+          r = 0; g = 242; b = 254;   // Cyber Cyan
+        } else {
+          r = 79; g = 172; b = 254;  // Cosmic Blue
+        }
+      } else {
+        if (life > 0.6) {
+          r = 255; g = 255; b = 255; // White hot
+        } else if (life > 0.3) {
+          r = 255; g = 180; b = 0;   // Solar Gold
+        } else {
+          r = 239; g = 68; b = 68;   // Flame Red
+        }
       }
-    }
 
-    this.auraParticles.forEach(ap => {
-      this.ctx.fillStyle = `rgba(${ap.color.r}, ${ap.color.g}, ${ap.color.b}, ${ap.alpha})`;
+      const radGrad = this.ctx.createRadialGradient(
+        f.x, f.y, 0,
+        f.x, f.y, f.size
+      );
+      radGrad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${life * 0.85})`);
+      radGrad.addColorStop(0.35, `rgba(${r}, ${g}, ${b}, ${life * 0.32})`);
+      radGrad.addColorStop(1, 'rgba(0,0,0,0)');
+
+      this.ctx.fillStyle = radGrad;
       this.ctx.beginPath();
-      this.ctx.arc(ap.x, ap.y, ap.size, 0, Math.PI * 2);
+      this.ctx.arc(f.x, f.y, f.size, 0, Math.PI * 2);
       this.ctx.fill();
     });
 
-    if (this.coreRadius > 1) {
-      const grad = this.ctx.createRadialGradient(
-        centerX, centerY - 25 * Math.min(1.2, this.coreRadius / 25), 0,
-        centerX, centerY - 25 * Math.min(1.2, this.coreRadius / 25), this.coreRadius
-      );
-      grad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
-      grad.addColorStop(0.3, 'rgba(0, 242, 254, 0.85)');
-      grad.addColorStop(0.7, 'rgba(79, 172, 254, 0.45)');
-      grad.addColorStop(1, 'rgba(0, 110, 160, 0)');
-      this.ctx.fillStyle = grad;
+    // 4. Draw embers
+    this.embers.forEach(e => {
+      let color;
+      if (e.colorType === 'blue') {
+        color = `rgba(0, 242, 254, ${e.life})`;
+      } else {
+        color = `rgba(255, 140, 0, ${e.life})`;
+      }
+      this.ctx.fillStyle = color;
       this.ctx.beginPath();
-      this.ctx.arc(centerX, centerY - 25 * Math.min(1.2, this.coreRadius / 25), this.coreRadius, 0, Math.PI * 2);
+      this.ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
       this.ctx.fill();
-    }
+    });
 
+    // 5. Draw lightnings
     this.lightnings.forEach(l => {
       this.renderLightning(this.ctx, l);
     });
 
     this.ctx.restore();
 
+    // 6. Draw Fullscreen flash on impact
     if (this.flashAlpha > 0.01) {
       this.ctx.fillStyle = `rgba(225, 250, 255, ${this.flashAlpha * 0.95})`;
       this.ctx.fillRect(0, 0, this.width, this.height);
