@@ -3864,29 +3864,107 @@ function updateAnalyticsUI() {
 /* ==========================================================================
    8. SECTION 5: WATER & PROTEIN INTAKE CALCULATORS
    ========================================================================== */
+
+/* Water & Protein Intake Persistence & Midnight Reset */
+function saveIntakeData() {
+  try {
+    const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+    const data = {
+      date: todayStr,
+      protein: STATE.protein,
+      water: STATE.water
+    };
+    localStorage.setItem('IRON_CLUB_INTAKE_DATA', JSON.stringify(data));
+  } catch (e) {
+    console.error('Failed to save intake data:', e);
+  }
+}
+
+function loadIntakeData() {
+  try {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    const saved = localStorage.getItem('IRON_CLUB_INTAKE_DATA');
+    if (saved) {
+      const data = JSON.parse(saved);
+      // Check if day has changed since last save
+      if (data.date && data.date !== todayStr) {
+        // Reset logged intake for new day
+        if (data.protein) {
+          STATE.protein.goal = data.protein.goal || 120;
+        }
+        STATE.protein.entries = [];
+
+        if (data.water) {
+          STATE.water.goal = data.water.goal || 3.0;
+        }
+        STATE.water.entries = [];
+        
+        saveIntakeData(); // lock in the empty entries with today's date
+      } else {
+        // Same day: load target and entries
+        if (data.protein) {
+          STATE.protein.goal = data.protein.goal || 120;
+          STATE.protein.entries = data.protein.entries || [];
+        }
+        if (data.water) {
+          STATE.water.goal = data.water.goal || 3.0;
+          STATE.water.entries = data.water.entries || [];
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load intake data:', e);
+  }
+}
+
 function initIntakeCalculators() {
+  loadIntakeData();
+
   // Goal Input Handlers
   const pTarget = document.getElementById('protein-target');
-  pTarget.addEventListener('input', (e) => {
-    let goal = parseInt(e.target.value);
-    if (!goal || goal < 1) goal = 1;
-    STATE.protein.goal = goal;
-    document.getElementById('protein-goal-lbl').textContent = goal;
-    updateIntakeUI('protein');
-  });
+  if (pTarget) {
+    pTarget.value = STATE.protein.goal || '';
+    pTarget.addEventListener('input', (e) => {
+      let goal = parseInt(e.target.value);
+      if (!goal || goal < 1) goal = 1;
+      STATE.protein.goal = goal;
+      document.getElementById('protein-goal-lbl').textContent = goal;
+      updateIntakeUI('protein');
+      saveIntakeData();
+    });
+  }
 
   const wTarget = document.getElementById('water-target');
-  wTarget.addEventListener('input', (e) => {
-    let goal = parseFloat(e.target.value);
-    if (!goal || goal < 0.1) goal = 0.1;
-    STATE.water.goal = goal;
-    document.getElementById('water-goal-lbl').textContent = goal.toFixed(2);
-    updateIntakeUI('water');
-  });
+  if (wTarget) {
+    wTarget.value = STATE.water.goal || '';
+    wTarget.addEventListener('input', (e) => {
+      let goal = parseFloat(e.target.value);
+      if (!goal || goal < 0.1) goal = 0.1;
+      STATE.water.goal = goal;
+      document.getElementById('water-goal-lbl').textContent = goal.toFixed(2);
+      updateIntakeUI('water');
+      saveIntakeData();
+    });
+  }
 
   // Entry additions
   document.getElementById('btn-protein-add').addEventListener('click', addProteinEntry);
   document.getElementById('btn-water-add').addEventListener('click', addWaterEntry);
+
+  // Periodically check for midnight date change (every 30 seconds)
+  setInterval(() => {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    const saved = localStorage.getItem('IRON_CLUB_INTAKE_DATA');
+    if (saved) {
+      const data = JSON.parse(saved);
+      if (data.date && data.date !== todayStr) {
+        // Date changed! Reset and reload
+        loadIntakeData();
+        updateIntakeUI('protein');
+        updateIntakeUI('water');
+      }
+    }
+  }, 30000);
 
   updateIntakeUI('protein');
   updateIntakeUI('water');
@@ -4030,6 +4108,7 @@ function addProteinEntry() {
   nameInput.value = '';
   valInput.value = '';
   updateIntakeUI('protein');
+  saveIntakeData();
 }
 
 function addWaterEntry() {
@@ -4050,15 +4129,18 @@ function addWaterEntry() {
   nameInput.value = '';
   valInput.value = '';
   updateIntakeUI('water');
+  saveIntakeData();
 }
 
 window.deleteIntakeEntry = function(type, id) {
   if (type === 'protein') {
     STATE.protein.entries = STATE.protein.entries.filter(e => e.id !== id);
     updateIntakeUI('protein');
+    saveIntakeData();
   } else if (type === 'water') {
     STATE.water.entries = STATE.water.entries.filter(e => e.id !== id);
     updateIntakeUI('water');
+    saveIntakeData();
   }
 };
 
