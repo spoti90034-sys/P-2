@@ -5296,19 +5296,22 @@ const CinematicIntro = {
   ctx: null,
   animationFrameId: null,
   particles: [],
+  auraParticles: [], 
   targetPoints: [],
   phase: 'assemble', // 'assemble', 'flex', 'explode', 'settle'
   phaseTimer: 0,
   width: 0,
   height: 0,
   shockwaves: [],
-  glowIntensity: 0,
+  lightnings: [], 
+  shakeIntensity: 0,
+  flashAlpha: 0,
+  coreRadius: 0,
 
   start() {
     const container = document.getElementById('cinematic-intro-container');
     if (!container) return;
 
-    // Check platform flag
     if (!window.IS_WEBSITE) {
       container.style.display = 'none';
       container.remove();
@@ -5324,14 +5327,16 @@ const CinematicIntro = {
     this.phase = 'assemble';
     this.phaseTimer = Date.now();
     this.particles = [];
+    this.auraParticles = [];
     this.shockwaves = [];
-    this.glowIntensity = 0;
+    this.lightnings = [];
+    this.shakeIntensity = 0;
+    this.flashAlpha = 0;
+    this.coreRadius = 0;
 
-    // Resize handler
     this.resize();
     window.addEventListener('resize', this.handleResize);
 
-    // Bind skip and enter buttons
     const skipBtn = document.getElementById('skip-intro-btn');
     if (skipBtn) {
       skipBtn.addEventListener('click', () => this.terminate());
@@ -5342,11 +5347,9 @@ const CinematicIntro = {
       enterBtn.addEventListener('click', () => this.terminate());
     }
 
-    // Generate targets and particles
     this.generateHumanoidTargets();
     this.initParticles();
 
-    // Start render loop
     requestAnimationFrame((t) => this.loop(t));
   },
 
@@ -5367,33 +5370,35 @@ const CinematicIntro = {
     const centerY = this.height / 2 + 50; 
     const scale = Math.min(this.width, this.height) * 0.0035; 
 
-    // 15% head (circle)
+    // Head
     const headCount = Math.floor(count * 0.15);
-    const headRadius = 25 * scale;
+    const headRadius = 24 * scale;
     const headCenterY = centerY - 110 * scale;
     for (let i = 0; i < headCount; i++) {
       const angle = Math.random() * Math.PI * 2;
       const r = Math.random() * headRadius;
       this.targetPoints.push({
         x: centerX + Math.cos(angle) * r,
-        y: headCenterY + Math.sin(angle) * r
+        y: headCenterY + Math.sin(angle) * r,
+        part: 'head'
       });
     }
 
-    // 35% torso (trapezoid-like chest and waist)
+    // Torso
     const torsoCount = Math.floor(count * 0.35);
     for (let i = 0; i < torsoCount; i++) {
-      const yRel = -80 + Math.random() * 90; 
-      const t = (yRel + 80) / 90; 
-      const halfW = (35 - t * 18) * scale;
+      const yRel = -85 + Math.random() * 95; 
+      const t = (yRel + 85) / 95; 
+      const halfW = (38 - t * 20) * scale;
       const xRel = (Math.random() * 2 - 1) * halfW;
       this.targetPoints.push({
         x: centerX + xRel,
-        y: centerY + yRel * scale
+        y: centerY + yRel * scale,
+        part: 'torso'
       });
     }
 
-    // 25% flexed arms (left and right biceps/forearms arches)
+    // Arms (Power flex pose)
     const armCount = Math.floor(count * 0.25);
     const halfArm = Math.floor(armCount / 2);
     // Left arm
@@ -5413,7 +5418,8 @@ const CinematicIntro = {
       yRel += (Math.random() * 2 - 1) * 6;
       this.targetPoints.push({
         x: centerX + xRel * scale,
-        y: centerY + yRel * scale
+        y: centerY + yRel * scale,
+        part: 'arm'
       });
     }
     // Right arm
@@ -5433,56 +5439,59 @@ const CinematicIntro = {
       yRel += (Math.random() * 2 - 1) * 6;
       this.targetPoints.push({
         x: centerX + xRel * scale,
-        y: centerY + yRel * scale
+        y: centerY + yRel * scale,
+        part: 'arm'
       });
     }
 
-    // 25% legs (left and right wide stance lines)
+    // Legs (Solid power stance)
     const legCount = count - headCount - torsoCount - armCount;
     const halfLeg = Math.floor(legCount / 2);
     // Left leg
     for (let i = 0; i < halfLeg; i++) {
       const t = Math.random();
-      const xRel = -20 - t * 25;
-      const yRel = 10 + t * 100;
+      const xRel = -20 - t * 30;
+      const yRel = 10 + t * 105;
       const thickX = (Math.random() * 2 - 1) * 8;
       const thickY = (Math.random() * 2 - 1) * 4;
       this.targetPoints.push({
         x: centerX + (xRel + thickX) * scale,
-        y: centerY + (yRel + thickY) * scale
+        y: centerY + (yRel + thickY) * scale,
+        part: 'leg'
       });
     }
     // Right leg
     for (let i = 0; i < (legCount - halfLeg); i++) {
       const t = Math.random();
-      const xRel = 20 + t * 25;
-      const yRel = 10 + t * 100;
+      const xRel = 20 + t * 30;
+      const yRel = 10 + t * 105;
       const thickX = (Math.random() * 2 - 1) * 8;
       const thickY = (Math.random() * 2 - 1) * 4;
       this.targetPoints.push({
         x: centerX + (xRel + thickX) * scale,
-        y: centerY + (yRel + thickY) * scale
+        y: centerY + (yRel + thickY) * scale,
+        part: 'leg'
       });
     }
   },
 
   initParticles() {
     this.particles = [];
-    const count = 1800; 
+    const count = 2200; 
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const r = Math.max(this.width, this.height) * (0.5 + Math.random() * 0.5);
+      const r = Math.max(this.width, this.height) * (0.6 + Math.random() * 0.4);
       const x = this.width / 2 + Math.cos(angle) * r;
       const y = this.height / 2 + Math.sin(angle) * r;
 
       const rand = Math.random();
       let color;
-      if (rand < 0.35) {
+      if (rand < 0.4) {
         color = { r: 0, g: 242, b: 254 }; 
-      } else if (rand < 0.65) {
+      } else if (rand < 0.7) {
         color = { r: 79, g: 172, b: 254 }; 
-      } else if (rand < 0.85) {
-        color = { r: 255, g: 180, b: 0 }; 
+      } else if (rand < 0.9) {
+        color = { r: 255, g: 165, b: 0 }; 
       } else {
         color = { r: 255, g: 255, b: 255 }; 
       }
@@ -5490,16 +5499,14 @@ const CinematicIntro = {
       this.particles.push({
         x: x,
         y: y,
-        ox: x, 
-        oy: y, 
-        vx: (Math.random() - 0.5) * 4,
-        vy: (Math.random() - 0.5) * 4,
-        size: 1 + Math.random() * 2,
+        vx: (Math.random() - 0.5) * 6,
+        vy: (Math.random() - 0.5) * 6,
+        size: 1 + Math.random() * 2.2,
         color: color,
-        alpha: 0.1 + Math.random() * 0.9,
-        targetIdx: i < this.targetPoints.length ? i : -1, 
-        speedFactor: 0.02 + Math.random() * 0.04,
-        noiseSeed: Math.random() * 1000
+        alpha: 0.2 + Math.random() * 0.8,
+        targetIdx: i < this.targetPoints.length ? i : -1,
+        speedFactor: 0.015 + Math.random() * 0.035,
+        angleOffset: Math.random() * Math.PI * 2
       });
     }
   },
@@ -5510,21 +5517,55 @@ const CinematicIntro = {
     const now = Date.now();
     const elapsed = (now - this.phaseTimer) / 1000;
 
-    if (this.phase === 'assemble' && elapsed >= 3.0) {
-      this.phase = 'flex';
-      this.phaseTimer = now;
-      this.spawnShockwave();
-    } else if (this.phase === 'flex' && elapsed >= 2.0) {
-      this.phase = 'explode';
-      this.phaseTimer = now;
-      this.spawnShockwave(true);
-    } else if (this.phase === 'explode' && elapsed >= 1.5) {
-      this.phase = 'settle';
-      this.phaseTimer = now;
-      const entryCont = document.getElementById('intro-entry-container');
-      if (entryCont) {
-        entryCont.style.display = 'block';
+    if (this.phase === 'assemble') {
+      this.shakeIntensity = Math.min(2.5, elapsed * 0.6); 
+      this.coreRadius = Math.min(45, (elapsed / 4.5) * 45); 
+      
+      if (Math.random() < 0.02 * elapsed) {
+        this.triggerLightningStrike();
       }
+
+      if (elapsed >= 4.5) {
+        this.phase = 'flex';
+        this.phaseTimer = now;
+        this.shakeIntensity = 8.5; 
+        this.spawnShockwave(false, 30); 
+        this.triggerLightningStrike(true); 
+      }
+    } else if (this.phase === 'flex') {
+      this.shakeIntensity = 8.5 - (elapsed * 2); 
+      this.coreRadius = 45 + Math.sin(Date.now() * 0.05) * 10; 
+
+      this.spawnAuraParticles();
+
+      if (Math.random() < 0.25) {
+        this.triggerLightningStrike();
+      }
+
+      if (elapsed >= 2.0) {
+        this.phase = 'explode';
+        this.phaseTimer = now;
+        this.shakeIntensity = 18; 
+        this.flashAlpha = 1.0; 
+        this.spawnShockwave(true, 65); 
+        this.triggerLightningStrike(true);
+      }
+    } else if (this.phase === 'explode') {
+      this.shakeIntensity *= 0.88; 
+      this.flashAlpha *= 0.85; 
+      this.coreRadius = 0; 
+
+      if (elapsed >= 1.2) {
+        this.phase = 'settle';
+        this.phaseTimer = now;
+        const entryCont = document.getElementById('intro-entry-container');
+        if (entryCont) {
+          entryCont.style.display = 'block';
+        }
+      }
+    } else if (this.phase === 'settle') {
+      this.shakeIntensity = 0;
+      this.flashAlpha = 0;
     }
 
     this.update(elapsed);
@@ -5533,21 +5574,60 @@ const CinematicIntro = {
     this.animationFrameId = requestAnimationFrame(() => this.loop());
   },
 
-  spawnShockwave(isFinal = false) {
+  spawnAuraParticles() {
+    const count = 12;
+    for (let i = 0; i < count; i++) {
+      const target = this.targetPoints[Math.floor(Math.random() * this.targetPoints.length)];
+      
+      this.auraParticles.push({
+        x: target.x + (Math.random() - 0.5) * 10,
+        y: target.y,
+        vx: (Math.random() - 0.5) * 3,
+        vy: -(Math.random() * 5 + 4), 
+        size: 1.5 + Math.random() * 3,
+        alpha: 1.0,
+        color: Math.random() < 0.6 ? { r: 255, g: 165, b: 0 } : { r: 0, g: 242, b: 254 }, 
+        life: 1.0,
+        decay: 0.02 + Math.random() * 0.02
+      });
+    }
+  },
+
+  triggerLightningStrike(heavy = false) {
+    const strikeCount = heavy ? 4 : 1;
+    for (let i = 0; i < strikeCount; i++) {
+      const startX = Math.random() * this.width;
+      const startY = 0; 
+      
+      const target = this.targetPoints[Math.floor(Math.random() * this.targetPoints.length)];
+      const endX = target.x;
+      const endY = target.y;
+
+      this.lightnings.push({
+        startX, startY, endX, endY,
+        alpha: 1.0,
+        decay: 0.08 + Math.random() * 0.08,
+        displace: 65,
+        branches: Math.random() < 0.4
+      });
+    }
+  },
+
+  spawnShockwave(isFinal = false, force = 20) {
     this.shockwaves.push({
       x: this.width / 2,
       y: this.height / 2,
       radius: 0,
-      maxRadius: Math.max(this.width, this.height) * (isFinal ? 1.2 : 0.8),
-      speed: isFinal ? 15 : 8,
-      force: isFinal ? 45 : 12,
+      maxRadius: Math.max(this.width, this.height) * (isFinal ? 1.3 : 0.8),
+      speed: isFinal ? 20 : 10,
+      force: force,
       alpha: 1
     });
   },
 
   update(elapsed) {
     const centerX = this.width / 2;
-    const centerY = this.height / 2;
+    const centerY = this.height / 2 + 50;
 
     this.shockwaves.forEach(w => {
       w.radius += w.speed;
@@ -5555,79 +5635,90 @@ const CinematicIntro = {
     });
     this.shockwaves = this.shockwaves.filter(w => w.radius < w.maxRadius);
 
+    this.lightnings.forEach(l => {
+      l.alpha -= l.decay;
+    });
+    this.lightnings = this.lightnings.filter(l => l.alpha > 0);
+
+    this.auraParticles.forEach(ap => {
+      ap.x += ap.vx;
+      ap.y += ap.vy;
+      ap.alpha -= ap.decay;
+      ap.size *= 0.96; 
+    });
+    this.auraParticles = this.auraParticles.filter(ap => ap.alpha > 0);
+
     this.particles.forEach(p => {
+      const dx = p.x - centerX;
+      const dy = p.y - centerY;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
       if (this.phase === 'assemble') {
         if (p.targetIdx !== -1) {
           const target = this.targetPoints[p.targetIdx];
-          const force = p.speedFactor * Math.min(1, elapsed / 1.5);
+          
+          const swirlFactor = 1.8 * (1 - Math.min(1, elapsed / 4.5)); 
+          p.vx += (-dy / dist) * swirlFactor;
+          p.vy += (dx / dist) * swirlFactor;
+
+          const force = p.speedFactor * Math.min(1.2, elapsed / 2.0);
           p.vx += (target.x - p.x) * force;
           p.vy += (target.y - p.y) * force;
-          p.vx *= 0.82;
-          p.vy *= 0.82;
+          p.vx *= 0.84;
+          p.vy *= 0.84;
         } else {
-          const dx = p.x - centerX;
-          const dy = p.y - centerY;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const swirlForce = 0.5;
-          p.vx += (-dy / dist) * swirlForce;
-          p.vx += (centerX - p.x) * 0.001;
-          p.vy += (dx / dist) * swirlForce;
-          p.vy += (centerY - p.y) * 0.001;
-          p.vx *= 0.95;
-          p.vy *= 0.95;
+          const swirl = 1.0;
+          p.vx += (-dy / dist) * swirl;
+          p.vx += (centerX - p.x) * 0.0008;
+          p.vy += (dx / dist) * swirl;
+          p.vy += (centerY - p.y) * 0.0008;
+          p.vx *= 0.94;
+          p.vy *= 0.94;
         }
       } else if (this.phase === 'flex') {
         if (p.targetIdx !== -1) {
           const target = this.targetPoints[p.targetIdx];
-          p.vx += (target.x - p.x) * 0.15;
-          p.vy += (target.y - p.y) * 0.15;
-          p.vx += (Math.random() - 0.5) * 1.5;
-          p.vy += (Math.random() - 0.5) * 1.5;
-          p.vx *= 0.7;
-          p.vy *= 0.7;
+          p.vx += (target.x - p.x) * 0.22;
+          p.vy += (target.y - p.y) * 0.22;
+          
+          p.vx += (Math.random() - 0.5) * 3.5;
+          p.vy += (Math.random() - 0.5) * 3.5;
+          
+          p.vx *= 0.65;
+          p.vy *= 0.65;
         } else {
-          const dx = p.x - centerX;
-          const dy = p.y - centerY;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          p.vx += (-dy / dist) * 1.2;
-          p.vx += (centerX - p.x) * 0.003;
-          p.vy += (dx / dist) * 1.2;
-          p.vy += (centerY - p.y) * 0.003;
-          p.vx *= 0.9;
-          p.vy *= 0.9;
-        }
-
-        if (Math.random() < 0.03 && this.shockwaves.length < 2) {
-          this.spawnShockwave(false);
+          p.vx += (-dy / dist) * 2.2;
+          p.vx += (centerX - p.x) * 0.005;
+          p.vy += (dx / dist) * 2.2;
+          p.vy += (centerY - p.y) * 0.005;
+          p.vx *= 0.88;
+          p.vy *= 0.88;
         }
       } else if (this.phase === 'explode') {
         if (p.targetIdx !== -1) {
-          const dx = p.x - centerX;
-          const dy = p.y - centerY;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          p.vx += (dx / dist) * (15 + Math.random() * 25);
-          p.vy += (dy / dist) * (15 + Math.random() * 25);
-          p.targetIdx = -1;
+          p.vx += (dx / dist) * (18 + Math.random() * 32);
+          p.vy += (dy / dist) * (18 + Math.random() * 32);
+          p.targetIdx = -1; 
         }
         p.vx *= 0.92;
         p.vy *= 0.92;
       } else if (this.phase === 'settle') {
-        p.vx *= 0.95;
-        p.vy *= 0.95;
-        p.vy += 0.04; 
-        p.alpha -= 0.008; 
+        p.vx *= 0.94;
+        p.vy *= 0.94;
+        p.vy += 0.035; 
+        p.alpha -= 0.007; 
       }
 
       this.shockwaves.forEach(w => {
-        const dx = p.x - w.x;
-        const dy = p.y - w.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const width = 80; 
-        if (dist > w.radius - width && dist < w.radius + width) {
-          const intensity = 1 - Math.abs(dist - w.radius) / width;
+        const pdx = p.x - w.x;
+        const pdy = p.y - w.y;
+        const pdist = Math.sqrt(pdx * pdx + pdy * pdy) || 1;
+        const width = 100;
+        if (pdist > w.radius - width && pdist < w.radius + width) {
+          const intensity = 1 - Math.abs(pdist - w.radius) / width;
           const pushForce = w.force * intensity * w.alpha;
-          p.vx += (dx / dist) * pushForce;
-          p.vy += (dy / dist) * pushForce;
+          p.vx += (pdx / pdist) * pushForce;
+          p.vy += (pdy / pdist) * pushForce;
         }
       });
 
@@ -5635,9 +5726,9 @@ const CinematicIntro = {
       p.y += p.vy;
 
       if (this.phase === 'assemble' && p.targetIdx === -1) {
-        if (p.x < 0 || p.x > this.width || p.y < 0 || p.y > this.height) {
+        if (p.x < -100 || p.x > this.width + 100 || p.y < -100 || p.y > this.height + 100) {
           const angle = Math.random() * Math.PI * 2;
-          const r = Math.max(this.width, this.height) * 0.45;
+          const r = Math.max(this.width, this.height) * 0.5;
           p.x = centerX + Math.cos(angle) * r;
           p.y = centerY + Math.sin(angle) * r;
           p.vx = 0;
@@ -5651,32 +5742,77 @@ const CinematicIntro = {
     }
   },
 
+  drawLightningSegment(ctx, x1, y1, x2, y2, displace) {
+    if (displace < 3) {
+      ctx.lineTo(x2, y2);
+    } else {
+      const midX = (x1 + x2) / 2;
+      const midY = (y1 + y2) / 2;
+      const offX = (Math.random() - 0.5) * displace;
+      const offY = (Math.random() - 0.5) * displace;
+      this.drawLightningSegment(ctx, x1, y1, midX + offX, midY + offY, displace / 2);
+      this.drawLightningSegment(ctx, midX + offX, midY + offY, x2, y2, displace / 2);
+    }
+  },
+
+  renderLightning(ctx, l) {
+    ctx.strokeStyle = `rgba(0, 242, 254, ${l.alpha * 0.6})`;
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.shadowColor = '#00f2fe';
+    ctx.shadowBlur = 15;
+    ctx.beginPath();
+    ctx.moveTo(l.startX, l.startY);
+    this.drawLightningSegment(ctx, l.startX, l.startY, l.endX, l.endY, l.displace);
+    ctx.stroke();
+
+    ctx.strokeStyle = `rgba(255, 255, 255, ${l.alpha})`;
+    ctx.lineWidth = 1.8;
+    ctx.shadowBlur = 0; 
+    ctx.beginPath();
+    ctx.moveTo(l.startX, l.startY);
+    this.drawLightningSegment(ctx, l.startX, l.startY, l.endX, l.endY, l.displace);
+    ctx.stroke();
+  },
+
   draw() {
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
     this.ctx.fillRect(0, 0, this.width, this.height);
+
+    this.ctx.save();
+
+    if (this.shakeIntensity > 0.1) {
+      const dx = (Math.random() - 0.5) * this.shakeIntensity;
+      const dy = (Math.random() - 0.5) * this.shakeIntensity;
+      this.ctx.translate(dx, dy);
+    }
+
+    const centerX = this.width / 2;
+    const centerY = this.height / 2 + 50;
 
     if (this.phase === 'assemble' || this.phase === 'flex') {
       const gradient = this.ctx.createRadialGradient(
-        this.width / 2, this.height / 2, 0,
-        this.width / 2, this.height / 2, Math.max(this.width, this.height) * 0.35
+        centerX, centerY, 0,
+        centerX, centerY, Math.max(this.width, this.height) * 0.38
       );
-      const progress = this.phase === 'assemble' ? Math.min(1, (Date.now() - this.phaseTimer) / 3000) : 1;
-      gradient.addColorStop(0, `rgba(0, 110, 160, ${0.18 * progress})`);
-      gradient.addColorStop(0.5, `rgba(127, 0, 255, ${0.04 * progress})`);
+      const progress = this.phase === 'assemble' ? Math.min(1.0, (Date.now() - this.phaseTimer) / 4500) : 1.0;
+      gradient.addColorStop(0, `rgba(0, 150, 220, ${0.24 * progress})`);
+      gradient.addColorStop(0.4, `rgba(127, 0, 255, ${0.06 * progress})`);
       gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
       this.ctx.fillStyle = gradient;
       this.ctx.fillRect(0, 0, this.width, this.height);
     }
 
     this.shockwaves.forEach(w => {
-      this.ctx.strokeStyle = `rgba(0, 242, 254, ${w.alpha * 0.25})`;
+      this.ctx.strokeStyle = `rgba(0, 242, 254, ${w.alpha * 0.35})`;
       this.ctx.lineWidth = 4 * w.alpha;
       this.ctx.beginPath();
       this.ctx.arc(w.x, w.y, w.radius, 0, Math.PI * 2);
       this.ctx.stroke();
 
-      this.ctx.strokeStyle = `rgba(79, 172, 254, ${w.alpha * 0.08})`;
-      this.ctx.lineWidth = 12 * w.alpha;
+      this.ctx.strokeStyle = `rgba(79, 172, 254, ${w.alpha * 0.15})`;
+      this.ctx.lineWidth = 14 * w.alpha;
       this.ctx.beginPath();
       this.ctx.arc(w.x, w.y, w.radius, 0, Math.PI * 2);
       this.ctx.stroke();
@@ -5690,12 +5826,45 @@ const CinematicIntro = {
       this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       this.ctx.fill();
 
-      if (p.size > 2 && Math.random() < 0.2) {
-        this.ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha * 0.6})`;
+      if (p.size > 2.2 && Math.random() < 0.25) {
+        this.ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha * 0.7})`;
         this.ctx.beginPath();
         this.ctx.arc(p.x, p.y, p.size * 0.5, 0, Math.PI * 2);
         this.ctx.fill();
       }
+    }
+
+    this.auraParticles.forEach(ap => {
+      this.ctx.fillStyle = `rgba(${ap.color.r}, ${ap.color.g}, ${ap.color.b}, ${ap.alpha})`;
+      this.ctx.beginPath();
+      this.ctx.arc(ap.x, ap.y, ap.size, 0, Math.PI * 2);
+      this.ctx.fill();
+    });
+
+    if (this.coreRadius > 1) {
+      const grad = this.ctx.createRadialGradient(
+        centerX, centerY - 25 * Math.min(1.2, this.coreRadius / 25), 0,
+        centerX, centerY - 25 * Math.min(1.2, this.coreRadius / 25), this.coreRadius
+      );
+      grad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+      grad.addColorStop(0.3, 'rgba(0, 242, 254, 0.85)');
+      grad.addColorStop(0.7, 'rgba(79, 172, 254, 0.45)');
+      grad.addColorStop(1, 'rgba(0, 110, 160, 0)');
+      this.ctx.fillStyle = grad;
+      this.ctx.beginPath();
+      this.ctx.arc(centerX, centerY - 25 * Math.min(1.2, this.coreRadius / 25), this.coreRadius, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+
+    this.lightnings.forEach(l => {
+      this.renderLightning(this.ctx, l);
+    });
+
+    this.ctx.restore();
+
+    if (this.flashAlpha > 0.01) {
+      this.ctx.fillStyle = `rgba(225, 250, 255, ${this.flashAlpha * 0.95})`;
+      this.ctx.fillRect(0, 0, this.width, this.height);
     }
   },
 
