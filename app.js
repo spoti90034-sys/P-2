@@ -3747,21 +3747,23 @@ function triggerAttendanceBlueFire() {
       return;
     }
 
-    // Fireball position coordinates: left-to-right sweep with wavy sine height
+    // Fireball position coordinates: perfectly straight horizontal sweep
     const fx = t * canvas.width;
     const fy = 45; // Perfectly straight horizontal path
 
-    // Spawn blue-aura particles
-    const spawnRate = 6;
+    // Spawn mixed blue/gold-orange particles
+    const spawnRate = 7;
     for (let i = 0; i < spawnRate; i++) {
+      const isBlue = Math.random() > 0.45; // 45% blue, 55% yellow-orange
       particles.push({
-        x: fx + (Math.random() - 0.5) * 10,
-        y: fy + (Math.random() - 0.5) * 10,
+        x: fx + (Math.random() - 0.5) * 12,
+        y: fy + (Math.random() - 0.5) * 12,
         vx: -3.5 - Math.random() * 4.5, // fly backward
         vy: -0.5 - Math.random() * 2.0, // float upward
         life: 1.0,
-        decay: 0.035 + Math.random() * 0.035,
-        size: 10 + Math.random() * 14
+        decay: 0.03 + Math.random() * 0.03,
+        size: 9 + Math.random() * 13,
+        isBlue: isBlue
       });
     }
 
@@ -3775,8 +3777,14 @@ function triggerAttendanceBlueFire() {
       if (p.life > 0) {
         const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * p.life);
         grad.addColorStop(0, 'rgba(255, 255, 255, ' + p.life + ')'); // hot core
-        grad.addColorStop(0.3, 'rgba(0, 242, 254, ' + (p.life * 0.85) + ')'); // cyan glow
-        grad.addColorStop(0.7, 'rgba(0, 79, 254, ' + (p.life * 0.35) + ')'); // deep blue aura
+        
+        if (p.isBlue) {
+          grad.addColorStop(0.3, 'rgba(0, 242, 254, ' + (p.life * 0.85) + ')'); // cyan glow
+          grad.addColorStop(0.7, 'rgba(0, 79, 254, ' + (p.life * 0.35) + ')'); // deep blue aura
+        } else {
+          grad.addColorStop(0.3, 'rgba(255, 190, 0, ' + (p.life * 0.85) + ')'); // golden yellow
+          grad.addColorStop(0.7, 'rgba(255, 45, 0, ' + (p.life * 0.35) + ')'); // dark orange
+        }
         grad.addColorStop(1, 'rgba(0,0,0,0)');
 
         ctx.fillStyle = grad;
@@ -3789,16 +3797,24 @@ function triggerAttendanceBlueFire() {
     // Keep active particles
     particles = particles.filter(p => p.life > 0);
 
-    // Draw main glowing fireball head
-    const headGrad = ctx.createRadialGradient(fx, fy, 0, fx, fy, 32);
-    headGrad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
-    headGrad.addColorStop(0.2, 'rgba(0, 242, 254, 0.95)');
-    headGrad.addColorStop(0.6, 'rgba(0, 79, 254, 0.45)');
-    headGrad.addColorStop(1, 'rgba(0,0,0,0)');
-
-    ctx.fillStyle = headGrad;
+    // Draw main glowing fireball head (Layer 1: Outer Orange-Gold Aura)
+    const headGrad1 = ctx.createRadialGradient(fx, fy, 0, fx, fy, 45);
+    headGrad1.addColorStop(0, 'rgba(255, 190, 0, 1.0)');
+    headGrad1.addColorStop(0.5, 'rgba(255, 45, 0, 0.65)');
+    headGrad1.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = headGrad1;
     ctx.beginPath();
-    ctx.arc(fx, fy, 45, 0, Math.PI * 2);
+    ctx.arc(fx, fy, 55, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw main glowing fireball head (Layer 2: Inner Cyan-White Core)
+    const headGrad2 = ctx.createRadialGradient(fx, fy, 0, fx, fy, 22);
+    headGrad2.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+    headGrad2.addColorStop(0.4, 'rgba(0, 242, 254, 0.9)');
+    headGrad2.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = headGrad2;
+    ctx.beginPath();
+    ctx.arc(fx, fy, 28, 0, Math.PI * 2);
     ctx.fill();
 
     attendanceFireAnimationId = requestAnimationFrame(animLoop);
