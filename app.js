@@ -3749,7 +3749,7 @@ function triggerAttendanceBlueFire() {
 
     // Fireball position coordinates: left-to-right sweep with wavy sine height
     const fx = t * canvas.width;
-    const fy = 55 + Math.sin(t * Math.PI * 6.0) * 20;
+    const fy = 45; // Perfectly straight horizontal path
 
     // Spawn blue-aura particles
     const spawnRate = 6;
