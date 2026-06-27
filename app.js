@@ -5301,6 +5301,7 @@ const CinematicIntro = {
   // Volumetric Mesh assets
   innerCylinder: null,
   outerCylinder: null,
+  gokuMesh: null,
   helicalTubes: [],
   lightShafts: [],
   lightningMeshes: [],
@@ -5392,6 +5393,103 @@ const CinematicIntro = {
   },
 
   handleResize: null,
+
+  createGokuMannequin() {
+    const gokuGroup = new THREE.Group();
+    
+    // Translucent glowing material for the mannequin (energy outline)
+    const gokuMat = new THREE.MeshBasicMaterial({
+      color: 0xebfaff,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending
+    });
+    
+    // 1. Torso/Chest (Broad chest representation)
+    const chestGeo = new THREE.SphereGeometry(2.2, 8, 8);
+    chestGeo.scale(1.25, 0.85, 0.85); 
+    const chest = new THREE.Mesh(chestGeo, gokuMat);
+    chest.position.y = 12;
+    gokuGroup.add(chest);
+
+    // 2. Abs/Waist (V-taper)
+    const waistGeo = new THREE.CylinderGeometry(1.3, 0.95, 3.2, 8);
+    const waist = new THREE.Mesh(waistGeo, gokuMat);
+    waist.position.y = 10.1;
+    gokuGroup.add(waist);
+
+    // 3. Shoulders and bent arms (Flexing power-up stance)
+    // Left Arm
+    const lShoulderGeo = new THREE.SphereGeometry(1.1, 8, 8);
+    const lShoulder = new THREE.Mesh(lShoulderGeo, gokuMat);
+    lShoulder.position.set(-2.8, 12.3, 0);
+    gokuGroup.add(lShoulder);
+    
+    const lBicepGeo = new THREE.CylinderGeometry(0.85, 0.7, 3.2, 8);
+    const lBicep = new THREE.Mesh(lBicepGeo, gokuMat);
+    lBicep.position.set(-3.6, 11.0, 0.5);
+    lBicep.rotation.z = 0.4;
+    gokuGroup.add(lBicep);
+    
+    const lForearmGeo = new THREE.CylinderGeometry(0.7, 0.5, 3.2, 8);
+    const lForearm = new THREE.Mesh(lForearmGeo, gokuMat);
+    lForearm.position.set(-4.0, 9.2, 1.0);
+    lForearm.rotation.x = 0.5;
+    gokuGroup.add(lForearm);
+
+    // Right Arm
+    const rShoulder = new THREE.Mesh(lShoulderGeo, gokuMat);
+    rShoulder.position.set(2.8, 12.3, 0);
+    gokuGroup.add(rShoulder);
+    
+    const rBicep = new THREE.Mesh(lBicepGeo, gokuMat);
+    rBicep.position.set(3.6, 11.0, 0.5);
+    rBicep.rotation.z = -0.4;
+    gokuGroup.add(rBicep);
+    
+    const rForearm = new THREE.Mesh(lForearmGeo, gokuMat);
+    rForearm.position.set(4.0, 9.2, 1.0);
+    rForearm.rotation.x = 0.5;
+    gokuGroup.add(rForearm);
+
+    // 4. Head
+    const headGeo = new THREE.SphereGeometry(1.15, 8, 8);
+    const head = new THREE.Mesh(headGeo, gokuMat);
+    head.position.y = 13.9;
+    gokuGroup.add(head);
+
+    // 5. Stylized Goku Spiky Hair (composed of multiple angled cones)
+    const hairCount = 7;
+    for (let i = 0; i < hairCount; i++) {
+      const hairGeo = new THREE.ConeGeometry(0.55, 3.4, 4);
+      const hair = new THREE.Mesh(hairGeo, gokuMat);
+      
+      const angle = (i / (hairCount - 1)) * Math.PI - Math.PI / 2;
+      hair.position.set(Math.sin(angle) * 1.1, 14.6 + Math.cos(angle) * 0.4, Math.sin(angle * 2) * 0.5);
+      hair.rotation.z = -angle * 0.95;
+      hair.rotation.x = 0.25;
+      gokuGroup.add(hair);
+    }
+
+    // 6. Wide stance muscular legs
+    // Left leg
+    const lLegGeo = new THREE.CylinderGeometry(1.0, 0.7, 7.2, 8);
+    const lLeg = new THREE.Mesh(lLegGeo, gokuMat);
+    lLeg.position.set(-1.6, 6.5, 0);
+    lLeg.rotation.z = 0.25;
+    gokuGroup.add(lLeg);
+    
+    // Right leg
+    const rLeg = new THREE.Mesh(lLegGeo, gokuMat);
+    rLeg.position.set(1.6, 6.5, 0);
+    rLeg.rotation.z = -0.25;
+    gokuGroup.add(rLeg);
+
+    gokuGroup.scale.set(0.65, 0.65, 0.65);
+    gokuGroup.position.y = -8; // Align to base floor of scene
+    
+    return gokuGroup;
+  },
 
   initWebGL() {
     const width = window.innerWidth;
@@ -5637,8 +5735,8 @@ const CinematicIntro = {
       const coneGeo = new THREE.ConeGeometry(5 + i * 2, 50, 8, 4, true);
       const coneMesh = new THREE.Mesh(coneGeo, rayMat);
       coneMesh.position.set((Math.random() - 0.5) * 4, 10, (Math.random() - 0.5) * 4);
+      coneMesh.rotation.y = (Math.random() - 0.5) * 0.15;
       coneMesh.rotation.z = (Math.random() - 0.5) * 0.15;
-      coneMesh.rotation.x = (Math.random() - 0.5) * 0.15;
       coneMesh.scale.set(0.01, 0.01, 0.01);
       this.scene.add(coneMesh);
       this.lightShafts.push(coneMesh);
@@ -5664,7 +5762,6 @@ const CinematicIntro = {
     const emberTex = new THREE.CanvasTexture(canvas);
 
     for (let i = 0; i < this.emberCount; i++) {
-      // Spawn scattered in a column box
       const x = (Math.random() - 0.5) * 40;
       const y = -25 + Math.random() * 50;
       const z = (Math.random() - 0.5) * 40;
@@ -5698,9 +5795,12 @@ const CinematicIntro = {
     });
 
     this.emberPoints = new THREE.Points(emberGeo, emberMat);
-    // Hide initially (scale down to 0)
     this.emberPoints.scale.set(0.01, 0.01, 0.01);
     this.scene.add(this.emberPoints);
+
+    // 10. Goku Muscular Mannequin Silhouette setup
+    this.gokuMesh = this.createGokuMannequin();
+    this.scene.add(this.gokuMesh);
   },
 
   resize() {
@@ -5744,7 +5844,6 @@ const CinematicIntro = {
     points.push(new THREE.Vector3(endX, endY, endZ));
 
     const curve = new THREE.CatmullRomCurve3(points);
-    // Tube diameter is thick (0.65) to look realistic and stylized
     const tubeGeo = new THREE.TubeGeometry(curve, 24, 0.75, 4, false);
     
     const mat = new THREE.MeshBasicMaterial({
@@ -5769,6 +5868,7 @@ const CinematicIntro = {
 
     const now = Date.now();
     const elapsed = (now - this.phaseTimer) / 1000;
+    const dt = 0.016; // approx time delta
 
     // Update shaders uniforms
     if (this.innerUniforms) this.innerUniforms.uTime.value = elapsed;
@@ -5791,12 +5891,16 @@ const CinematicIntro = {
       if (this.innerUniforms) this.innerUniforms.uAlpha.value = alphaVal;
       if (this.outerUniforms) this.outerUniforms.uAlpha.value = alphaVal * 0.85;
 
-      // Scale up ribbons and god rays to simulate them growing
+      // Scale up Goku and ribbons/rays
       const scaleVal = Math.min(1.0, elapsed / 3.5);
+      this.gokuMesh.scale.set(0.65 * scaleVal, 0.65 * scaleVal, 0.65 * scaleVal);
+      this.gokuMesh.traverse(child => {
+        if (child.material) child.material.opacity = 0.85 * scaleVal;
+      });
+
       this.helicalTubes.forEach(t => t.scale.set(scaleVal, scaleVal, scaleVal));
       this.lightShafts.forEach((s, idx) => {
         s.scale.set(scaleVal, scaleVal, scaleVal);
-        // wobble god rays
         s.rotation.y += 0.004 * (idx + 1);
         s.rotation.z = Math.sin(now * 0.001 + idx) * 0.12;
       });
@@ -5841,6 +5945,13 @@ const CinematicIntro = {
       const scaleFactor = 1.0 + Math.sin(now * 0.06) * 0.08;
       this.innerCylinder.scale.set(scaleFactor, 1, scaleFactor);
       this.outerCylinder.scale.set(scaleFactor, 1, scaleFactor);
+
+      // Spin and flash Goku's mannequin
+      const flashIntensity = 0.7 + Math.sin(now * 0.08) * 0.3;
+      this.gokuMesh.scale.set(0.65 * scaleFactor, 0.65, 0.65 * scaleFactor);
+      this.gokuMesh.traverse(child => {
+        if (child.material) child.material.opacity = 0.85 * flashIntensity;
+      });
 
       // Rapidly spin the helical ribbons
       this.helicalTubes.forEach((t, idx) => {
@@ -5902,6 +6013,13 @@ const CinematicIntro = {
       this.innerCylinder.scale.set(expScale, 1.0, expScale);
       this.outerCylinder.scale.set(expScale, 1.0, expScale);
 
+      // Expand and fade Goku mannequin
+      const gokuExpScale = 0.65 * (1.0 + elapsed * 8.0);
+      this.gokuMesh.scale.set(gokuExpScale, gokuExpScale, gokuExpScale);
+      this.gokuMesh.traverse(child => {
+        if (child.material) child.material.opacity = Math.max(0.0, 0.85 * (1.0 - elapsed / 1.0));
+      });
+
       const alphaMult = Math.max(0.0, 1.0 - elapsed / 1.0);
       if (this.innerUniforms) this.innerUniforms.uAlpha.value = alphaMult;
       if (this.outerUniforms) this.outerUniforms.uAlpha.value = alphaMult * 0.85;
@@ -5915,7 +6033,6 @@ const CinematicIntro = {
       this.lightShafts.forEach((s) => s.scale.set(0.01, 0.01, 0.01));
 
       // Blast embers radially
-      const dt = 0.016;
       const emberPos = this.emberPoints.geometry.attributes.position;
       for (let i = 0; i < this.emberCount; i++) {
         const data = this.emberData[i];
@@ -5953,6 +6070,7 @@ const CinematicIntro = {
       // Hide everything except embers
       this.innerCylinder.scale.set(0.01, 0.01, 0.01);
       this.outerCylinder.scale.set(0.01, 0.01, 0.01);
+      this.gokuMesh.scale.set(0.01, 0.01, 0.01);
       this.helicalTubes.forEach((t) => t.scale.set(0.01, 0.01, 0.01));
 
       // Embers float slowly down like stardust
@@ -6014,6 +6132,13 @@ const CinematicIntro = {
         this.scene.remove(this.outerCylinder);
         this.outerCylinder.geometry.dispose();
         if (this.outerCylinder.material) this.outerCylinder.material.dispose();
+      }
+      if (this.gokuMesh) {
+        this.scene.remove(this.gokuMesh);
+        this.gokuMesh.traverse(child => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) child.material.dispose();
+        });
       }
       this.helicalTubes.forEach(t => {
         this.scene.remove(t);
